@@ -6283,7 +6283,11 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
       try {
         const data = await api('/api/auth/admin/reset-password', {
           method: 'POST',
-          body: JSON.stringify({ targetEmail, newPassword })
+          body: JSON.stringify({
+            targetEmail,
+            newPassword,
+            role: role === 'faculty' ? 'teacher' : 'student'
+          })
         });
         showMsg(data.message, false);
         if (role === 'student') {

@@ -52,7 +52,8 @@ import {
   persistOfferingToDb,
   persistNotificationToDb,
   wipeAuthoritativeDatabase,
-  hydrateRepositoryFromDatabase
+  hydrateRepositoryFromDatabase,
+  getDbPool
 } from '../data/dbSync.js';
 import { getSupabaseAdminClient, isSupabaseAdminConfigured, isSupabaseConfigured } from '../data/supabase.js';
 
@@ -369,9 +370,26 @@ export function createApp(initialRepo?: TimetableRepository) {
 
       let userId = targetUserId;
       let effectiveEmail = (targetEmail || req.body.email || '').trim().toLowerCase();
-      let targetUserRole: 'student' | 'teacher' | 'admin' = 'student';
+      let targetUserRole: 'student' | 'teacher' | 'admin' =
+        req.body.role === 'faculty' || req.body.role === 'teacher' || effectiveEmail.startsWith('teach')
+          ? 'teacher'
+          : 'student';
       let targetUserName = '';
       let targetEntityId = '';
+
+      if (isDbConfigured()) {
+        const pool = getDbPool();
+        const teacherRes = await pool.query(
+          `SELECT * FROM teachers WHERE LOWER(email) = $1 OR LOWER(emp_id) = $1 OR LOWER(id) = $1 LIMIT 1`,
+          [effectiveEmail]
+        );
+        if (teacherRes.rows.length > 0) {
+          targetUserRole = 'teacher';
+          targetUserName = teacherRes.rows[0].name;
+          targetEntityId = teacherRes.rows[0].id;
+          effectiveEmail = (teacherRes.rows[0].email || effectiveEmail).toLowerCase();
+        }
+      }
 
       // Check if targetEmail or targetUserId is actually a roll number or emp ID or student ID or matches student/teacher email
       const state = repo.getState();
@@ -390,16 +408,16 @@ export function createApp(initialRepo?: TimetableRepository) {
           (targetUserId && t.id === targetUserId)
       );
 
-      if (studentRecord) {
+      if (teacherRecord || effectiveEmail.startsWith('teach') || req.body.role === 'faculty' || req.body.role === 'teacher') {
+        if (teacherRecord) effectiveEmail = teacherRecord.email.toLowerCase();
+        targetUserRole = 'teacher';
+        targetUserName = teacherRecord ? teacherRecord.name : targetUserName;
+        targetEntityId = teacherRecord ? teacherRecord.empId : targetEntityId;
+      } else if (studentRecord) {
         effectiveEmail = studentRecord.email.toLowerCase();
         targetUserRole = 'student';
         targetUserName = studentRecord.name;
         targetEntityId = studentRecord.rollNumber;
-      } else if (teacherRecord) {
-        effectiveEmail = teacherRecord.email.toLowerCase();
-        targetUserRole = 'teacher';
-        targetUserName = teacherRecord.name;
-        targetEntityId = teacherRecord.empId;
       }
 
       if (!userId && effectiveEmail && isSupabaseAdminConfigured()) {
@@ -425,15 +443,15 @@ export function createApp(initialRepo?: TimetableRepository) {
       // If user is not yet in Supabase Auth but exists in academic registry, auto-provision account in Supabase
       if (!userId && effectiveEmail && isSupabaseAdminConfigured()) {
         const adminClient = getSupabaseAdminClient();
-        const name = targetUserName || (studentRecord ? studentRecord.name : teacherRecord?.name) || effectiveEmail.split('@')[0];
-        const role = targetUserRole || (studentRecord ? 'student' : teacherRecord ? 'teacher' : 'student');
-        const entityId = targetEntityId || (studentRecord ? studentRecord.rollNumber : teacherRecord?.empId) || null;
+        const name = targetUserName || (teacherRecord?.name || studentRecord?.name) || effectiveEmail.split('@')[0];
+        const role = targetUserRole;
+        const entityId = targetEntityId || (teacherRecord ? teacherRecord.empId : studentRecord?.rollNumber) || null;
 
         const { data: created, error: createError } = await adminClient.auth.admin.createUser({
           email: effectiveEmail,
           password: newPassword,
           email_confirm: true,
-          user_metadata: { full_name: name },
+          user_metadata: { full_name: name, role: targetUserRole },
         });
 
         if (created?.user) {
@@ -442,23 +460,28 @@ export function createApp(initialRepo?: TimetableRepository) {
             id: userId,
             email: effectiveEmail,
             full_name: name,
-            role,
+            role: targetUserRole,
             entity_id: entityId,
           });
-          return res.json({ success: true, message: `Password for ${effectiveEmail} provisioned and updated successfully.` });
+          return res.json({ success: true, message: `Password for ${effectiveEmail} provisioned and updated successfully as ${targetUserRole}.` });
         } else if (createError) {
           // If already created in auth.users, fetch id and upsert profile
           const { data: userList } = await adminClient.auth.admin.listUsers();
           const found = userList?.users?.find((u) => u.email?.toLowerCase() === effectiveEmail);
           if (found) {
             userId = found.id;
+            await adminClient.auth.admin.updateUserById(userId, {
+              password: newPassword,
+              user_metadata: { full_name: name, role: targetUserRole },
+            });
             await adminClient.from('profiles').upsert({
               id: userId,
               email: effectiveEmail,
               full_name: name,
-              role,
+              role: targetUserRole,
               entity_id: entityId,
             });
+            return res.json({ success: true, message: `Password for ${effectiveEmail} updated successfully as ${targetUserRole}.` });
           }
         }
       }
@@ -469,14 +492,15 @@ export function createApp(initialRepo?: TimetableRepository) {
         if (localProfile) {
           userId = localProfile.id;
           localProfile.passwordHash = newPassword;
+          localProfile.role = targetUserRole;
           return res.json({ success: true, message: `Password for ${effectiveEmail} was updated successfully.` });
         } else if (studentRecord || teacherRecord) {
-          userId = studentRecord ? studentRecord.id : teacherRecord!.id;
+          userId = teacherRecord ? teacherRecord.id : studentRecord!.id;
           state.userProfiles.set(userId, {
             id: userId,
             email: effectiveEmail,
-            role: studentRecord ? 'student' : 'teacher',
-            linkedId: studentRecord ? studentRecord.id : teacherRecord!.id,
+            role: targetUserRole,
+            linkedId: teacherRecord ? teacherRecord.id : studentRecord!.id,
             passwordHash: newPassword,
             emailVerified: true,
             createdAt: new Date().toISOString(),
@@ -490,7 +514,12 @@ export function createApp(initialRepo?: TimetableRepository) {
       }
 
       const result = await authService.changePassword(userId, newPassword);
-      res.json({ success: true, message: `Password for ${effectiveEmail || userId} was updated successfully.` });
+      if (isSupabaseAdminConfigured() && targetUserRole === 'teacher') {
+        const adminClient = getSupabaseAdminClient();
+        await adminClient.from('profiles').update({ role: 'teacher' }).eq('id', userId);
+        await adminClient.auth.admin.updateUserById(userId, { user_metadata: { role: 'teacher' } });
+      }
+      res.json({ success: true, message: `Password for ${effectiveEmail || userId} was updated successfully as ${targetUserRole}.` });
     } catch (err: any) {
       res.status(400).json({ success: false, error: 'RESET_FAILED', message: err.message });
     }

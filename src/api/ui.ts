@@ -5161,7 +5161,6 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
         ).join('') : '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">No published or draft timetables found.</td></tr>';
       }
     }
-    }
 
     async function restoreVersion(versionId) {
       if (!confirm('Restore this timetable version as active published?')) return;

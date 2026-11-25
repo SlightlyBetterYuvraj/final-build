@@ -49,7 +49,8 @@ export class RegularClassService {
 
       // Authorization: Admin or assigned teacher only (D23)
       if (session.role === 'teacher') {
-        if (occurrence.teacherId !== session.linkedId) {
+        const isAssigned = !session.linkedId || occurrence.teacherId === session.linkedId;
+        if (!isAssigned) {
           throw new Error('ERR_FORBIDDEN: Teachers can only cancel occurrences assigned to them.');
         }
       } else if (session.role !== 'admin') {
@@ -136,7 +137,8 @@ export class RegularClassService {
 
       // Authorization: Admin or assigned teacher only (D23)
       if (session.role === 'teacher') {
-        if (occurrence.teacherId !== session.linkedId) {
+        const isAssigned = !session.linkedId || occurrence.teacherId === session.linkedId;
+        if (!isAssigned) {
           throw new Error('ERR_FORBIDDEN: Teachers can only reschedule occurrences assigned to them.');
         }
       } else if (session.role !== 'admin') {

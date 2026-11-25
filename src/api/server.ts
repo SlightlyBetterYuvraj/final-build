@@ -93,11 +93,23 @@ export function createApp(initialRepo?: TimetableRepository) {
   function getSession(req: Request): AuthSession {
     const user = (req as any).user as AuthenticatedUser | undefined;
     if (user) {
+      // Robust teacher resolution: if entityId is not set, resolve from repository teachers by email or id
+      let resolvedLinkedId = user.entityId;
+      if (!resolvedLinkedId && user.role === 'teacher') {
+        const state = repo.getState();
+        for (const t of state.teachers.values()) {
+          if (t.email?.toLowerCase() === user.email?.toLowerCase() || t.id === user.id) {
+            resolvedLinkedId = t.id;
+            break;
+          }
+        }
+      }
+
       return {
         userId: user.id,
         email: user.email,
         role: user.role,
-        linkedId: user.entityId || (user.role === 'teacher' ? undefined : (user.role === 'student' ? 'stud-1' : undefined)),
+        linkedId: resolvedLinkedId || (user.role === 'teacher' ? undefined : (user.role === 'student' ? 'stud-1' : undefined)),
       };
     }
 

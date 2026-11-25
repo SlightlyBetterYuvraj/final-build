@@ -55,8 +55,8 @@ export function getDbPool(): pg.Pool {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false },
-      max: 5,
-      idleTimeoutMillis: 30000,
+      max: 2,
+      idleTimeoutMillis: 1000,
       connectionTimeoutMillis: 10000,
     });
 
@@ -581,7 +581,7 @@ export async function persistPublicationToDb(
     if (priorVersionId) {
       await client.query(`UPDATE timetable_versions SET status = 'superseded' WHERE id = $1`, [priorVersionId]);
       await client.query(
-        `UPDATE class_occurrences SET status = 'superseded' WHERE version_id = $1 AND NOT is_extra_class AND status != 'superseded'`,
+        `UPDATE class_occurrences SET status = 'cancelled' WHERE version_id = $1 AND NOT is_extra_class AND status != 'cancelled'`,
         [priorVersionId]
       );
     }
@@ -592,12 +592,13 @@ export async function persistPublicationToDb(
       [publishedVersion.id, publishedVersion.termId, publishedVersion.versionNumber, 'published', publishedVersion.inputRevision, publishedVersion.createdBy, publishedVersion.createdAt, publishedVersion.publishedAt, priorVersionId || null]
     );
     for (const occ of occurrences) {
+      const dbStatus = occ.status === 'superseded' ? 'cancelled' : occ.status;
       await client.query(
         `INSERT INTO class_occurrences (
           id, version_id, recurring_class_id, course_offering_id, term_id, date, day_of_week, start_slot, duration, activity_type, teacher_id, room_id, target_type, target_id, status
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status;`,
-        [occ.id, occ.versionId, occ.recurringClassId || null, occ.courseOfferingId, occ.termId, occ.date, occ.dayOfWeek, occ.startSlot, occ.duration, occ.activityType, occ.teacherId, occ.roomId, occ.targetType, occ.targetId, occ.status]
+        [occ.id, occ.versionId, occ.recurringClassId || null, occ.courseOfferingId, occ.termId, occ.date, occ.dayOfWeek, occ.startSlot, occ.duration, occ.activityType, occ.teacherId, occ.roomId, occ.targetType, occ.targetId, dbStatus]
       );
     }
     await client.query('COMMIT');
@@ -620,10 +621,10 @@ export async function persistVersionRestoreToDb(restoredVersionId: string, super
     await client.query('BEGIN');
     if (supersededVersionId) {
       await client.query(`UPDATE timetable_versions SET status = 'superseded' WHERE id = $1`, [supersededVersionId]);
-      await client.query(`UPDATE class_occurrences SET status = 'superseded' WHERE version_id = $1 AND NOT is_extra_class`, [supersededVersionId]);
+      await client.query(`UPDATE class_occurrences SET status = 'cancelled' WHERE version_id = $1 AND NOT is_extra_class`, [supersededVersionId]);
     }
     await client.query(`UPDATE timetable_versions SET status = 'published', published_at = NOW() WHERE id = $1`, [restoredVersionId]);
-    await client.query(`UPDATE class_occurrences SET status = 'scheduled' WHERE version_id = $1 AND NOT is_extra_class AND status = 'superseded'`, [restoredVersionId]);
+    await client.query(`UPDATE class_occurrences SET status = 'scheduled' WHERE version_id = $1 AND NOT is_extra_class AND status = 'cancelled'`, [restoredVersionId]);
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});

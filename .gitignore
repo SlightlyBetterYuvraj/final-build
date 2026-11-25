@@ -29,3 +29,5 @@ yarn-error.log*
 *.tar.gz
 .DS_Store
 Thumbs.db
+.env*
+temp_script.js

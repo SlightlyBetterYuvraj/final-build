@@ -22,6 +22,7 @@ import { GeneratorAdapterService } from '../services/generatorAdapter.js';
 import { DraftImportService } from '../services/draftImportService.js';
 import { PublicationService } from '../services/publicationService.js';
 import { allocateCourseColor, ensureCourseColorsInRepository } from '../services/courseService.js';
+import { importCurriculumCsvFiles } from '../services/csvImportService.js';
 import path from 'path';
 import fs from 'fs';
 import {
@@ -1475,6 +1476,24 @@ export function createApp(initialRepo?: TimetableRepository) {
       res.json({
         success: true,
         message: 'Database wiped 100% clean! All academic, timetable, and venue records cleared.'
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Bulk Curriculum CSV Importer (Direct multi-file upload for solver preparation)
+  app.post('/api/admin/curriculum/csv-import', requireRole(['admin']), async (req: Request, res: Response) => {
+    try {
+      const { files } = req.body;
+      if (!files || !Array.isArray(files) || files.length === 0) {
+        return res.status(400).json({ success: false, error: 'No CSV files provided in payload.' });
+      }
+      const counts = await importCurriculumCsvFiles(repo, files);
+      res.json({
+        success: true,
+        message: `Successfully imported ${counts.terms} terms, ${counts.courses} courses, ${counts.rooms} venues, ${counts.teachers} faculty, ${counts.sections} sections, ${counts.batches} batches, ${counts.offerings} offerings, and ${counts.students} students!`,
+        counts,
       });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });

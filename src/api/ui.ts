@@ -50,7 +50,9 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
     palette: `<svg class="lucide lucide-palette" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`,
     chevronRight: `<svg class="lucide lucide-chevron-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
     chevronLeft: `<svg class="lucide lucide-chevron-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>`,
-    lock: `<svg class="lucide lucide-lock" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
+    lock: `<svg class="lucide lucide-lock" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    upload: `<svg class="lucide lucide-upload" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
+    database: `<svg class="lucide lucide-database" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>`
   };
 
   return `<!DOCTYPE html>
@@ -3262,6 +3264,33 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
         <!-- SUB-PAGE 6: CP-SAT SOLVER & PUBLICATION HUB                      -->
         <!-- ================================================================ -->
         <div id="adminPageSolver" class="admin-page-pane" style="display: none;">
+          
+          <!-- Bulk Curriculum CSV Ingestion & Sample Dataset -->
+          <div class="card-box" style="margin-bottom: 24px; border-left: 4px solid var(--primary);">
+            <div class="card-box-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
+              <div>
+                <h3 class="card-box-title" style="margin: 0; font-size: 16px;">Curriculum CSV Bulk Ingestion & Demo Dataset</h3>
+                <p class="card-box-desc" style="margin: 4px 0 0 0;">Upload curriculum CSVs (terms, sections, batches, rooms, teachers, courses, offerings, students) or load sample data in 1-click.</p>
+              </div>
+              <button class="btn btn-secondary" onclick="loadSamplePresentationCsvPack()" style="display:inline-flex; align-items:center; gap:6px; background:#EEF2FF; color:var(--primary); border-color:#C7D2FE; font-weight:600;">
+                ${ICONS.database} Load Presentation Sample CSV Pack
+              </button>
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; padding: 12px; background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px;">
+              <input type="file" id="curriculumCsvFileInput" multiple accept=".csv" style="display:none;" onchange="handleCurriculumCsvFilesSelected(this.files)">
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('curriculumCsvFileInput').click()" style="display:inline-flex; align-items:center; gap:6px;">
+                ${ICONS.upload} Select CSV Files...
+              </button>
+              <button type="button" class="btn btn-primary" id="btnUploadCurriculumCsvs" onclick="submitSelectedCurriculumCsvs()" style="display:inline-flex; align-items:center; gap:6px;" disabled>
+                ${ICONS.check} Ingest Selected Files
+              </button>
+              <span id="curriculumCsvFileStatus" style="font-size: 13px; color: var(--text-muted);">
+                No CSV files selected. Supported: academic_terms.csv, sections.csv, batches.csv, rooms.csv, teachers.csv, courses.csv, course_offerings.csv, students_bulk_upload.csv
+              </span>
+            </div>
+          </div>
+
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px;">
             
             <!-- Generation Package Compiler -->
@@ -6602,6 +6631,156 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
     // ========================================================================
     // 5. SOLVER RUNNER & SSE STREAMING
     // ========================================================================
+    var selectedCurriculumCsvFiles = [];
+
+    function handleCurriculumCsvFilesSelected(fileList) {
+      selectedCurriculumCsvFiles = [];
+      var statusEl = document.getElementById('curriculumCsvFileStatus');
+      var uploadBtn = document.getElementById('btnUploadCurriculumCsvs');
+      if (!fileList || fileList.length === 0) {
+        if (statusEl) statusEl.textContent = 'No CSV files selected.';
+        if (uploadBtn) uploadBtn.disabled = true;
+        return;
+      }
+      var filesArr = Array.from(fileList);
+      selectedCurriculumCsvFiles = filesArr;
+      if (statusEl) {
+        statusEl.textContent = filesArr.length + ' file(s) selected: ' + filesArr.map(function(f) { return f.name; }).join(', ');
+      }
+      if (uploadBtn) uploadBtn.disabled = false;
+    }
+
+    async function submitSelectedCurriculumCsvs() {
+      if (!selectedCurriculumCsvFiles || selectedCurriculumCsvFiles.length === 0) {
+        showMsg('Please select one or more CSV files first.', true);
+        return;
+      }
+      var uploadBtn = document.getElementById('btnUploadCurriculumCsvs');
+      if (uploadBtn) { uploadBtn.disabled = true; uploadBtn.textContent = 'Importing...'; }
+      try {
+        var payloadFiles = [];
+        for (var i = 0; i < selectedCurriculumCsvFiles.length; i++) {
+          var file = selectedCurriculumCsvFiles[i];
+          var text = await file.text();
+          payloadFiles.push({ filename: file.name, content: text });
+        }
+        var res = await api('/api/admin/curriculum/csv-import', {
+          method: 'POST',
+          body: JSON.stringify({ files: payloadFiles })
+        });
+        showMsg(res.message || 'CSVs imported successfully!', false);
+        var log = document.getElementById('solverLogConsole');
+        var nl = String.fromCharCode(10);
+        if (log) log.innerHTML += nl + '[CSV IMPORT] ' + (res.message || 'Import successful.');
+        await loadState();
+      } catch (err) {
+        showMsg(err.message, true);
+      } finally {
+        if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.textContent = 'Ingest Selected Files'; }
+      }
+    }
+
+    async function loadSamplePresentationCsvPack() {
+      if (!confirm('Load official presentation sample CSV pack (terms, sections, batches, rooms, teachers, courses, offerings)?')) {
+        return;
+      }
+      var log = document.getElementById('solverLogConsole');
+      var nl = String.fromCharCode(10);
+      if (log) log.innerHTML += nl + '[DEMO] Ingesting sample presentation CSV dataset...';
+
+      var sampleFiles = [
+        {
+          filename: 'academic_terms.csv',
+          content: [
+            'id,year_label,semester_number,start_date,end_date,cycle,status',
+            'term_2026_odd,2026-2027,1,2026-08-01,2026-12-15,odd,active'
+          ].join(nl)
+        },
+        {
+          filename: 'sections.csv',
+          content: [
+            'id,term_id,name,expected_count,active',
+            'sec_cs_1a,term_2026_odd,CS-1A,60,true',
+            'sec_cs_1b,term_2026_odd,CS-1B,60,true'
+          ].join(nl)
+        },
+        {
+          filename: 'batches.csv',
+          content: [
+            'id,section_id,name,expected_count,active',
+            'batch_cs_1a_1,sec_cs_1a,CS-1A-B1,30,true',
+            'batch_cs_1a_2,sec_cs_1a,CS-1A-B2,30,true',
+            'batch_cs_1b_1,sec_cs_1b,CS-1B-B1,30,true',
+            'batch_cs_1b_2,sec_cs_1b,CS-1B-B2,30,true'
+          ].join(nl)
+        },
+        {
+          filename: 'rooms.csv',
+          content: [
+            'id,room_number,building,floor,capacity,room_type,active',
+            'room_lt1,LT-1,Academic Block A,1,100,lecture,true',
+            'room_lt2,LT-2,Academic Block A,1,80,lecture,true',
+            'room_lab1,Lab-1,Computing Block,2,35,lab,true',
+            'room_lab2,Lab-2,Computing Block,2,35,lab,true',
+            'room_tut1,T-101,Academic Block A,2,40,tutorial,true'
+          ].join(nl)
+        },
+        {
+          filename: 'teachers.csv',
+          content: [
+            'id,emp_id,name,email,active',
+            'fac_01,EMP001,Dr. Ananya Sharma,ananya.sharma@jklu.edu.in,true',
+            'fac_02,EMP002,Prof. Rajesh Verma,rajesh.verma@jklu.edu.in,true',
+            'fac_03,EMP003,Dr. Vikram Singh,vikram.singh@jklu.edu.in,true',
+            'fac_04,EMP004,Prof. Neha Gupta,neha.gupta@jklu.edu.in,true'
+          ].join(nl)
+        },
+        {
+          filename: 'courses.csv',
+          content: [
+            'id,code,name,term_id,lecture_hours,tutorial_hours,practical_hours,required_room_type',
+            'c_cs101,CS101,Introduction to Programming,term_2026_odd,3,0,2,lab',
+            'c_ma101,MA101,Linear Algebra & Calculus,term_2026_odd,3,1,0,lecture',
+            'c_cs102,CS102,Digital Logic Design,term_2026_odd,3,0,2,lab'
+          ].join(nl)
+        },
+        {
+          filename: 'course_offerings.csv',
+          content: [
+            'id,course_id,term_id,teacher_id,target_type,target_id',
+            'off_cs101_1a,c_cs101,term_2026_odd,fac_01,section,sec_cs_1a',
+            'off_cs101_1b,c_cs101,term_2026_odd,fac_01,section,sec_cs_1b',
+            'off_ma101_1a,c_ma101,term_2026_odd,fac_02,section,sec_cs_1a',
+            'off_ma101_1b,c_ma101,term_2026_odd,fac_02,section,sec_cs_1b',
+            'off_cs102_1a,c_cs102,term_2026_odd,fac_03,section,sec_cs_1a',
+            'off_cs102_1b,c_cs102,term_2026_odd,fac_04,section,sec_cs_1b'
+          ].join(nl)
+        },
+        {
+          filename: 'students_bulk_upload.csv',
+          content: [
+            'roll_number,name,email,section_id,batch_id,initial_password',
+            '2026CS001,Aarav Sharma,aarav.sharma@jklu.edu.in,sec_cs_1a,batch_cs_1a_1,Pass@123',
+            '2026CS002,Diya Patel,diya.patel@jklu.edu.in,sec_cs_1a,batch_cs_1a_2,Pass@123',
+            '2026CS003,Rohan Mehta,rohan.mehta@jklu.edu.in,sec_cs_1b,batch_cs_1b_1,Pass@123'
+          ].join(nl)
+        }
+      ];
+
+      try {
+        var res = await api('/api/admin/curriculum/csv-import', {
+          method: 'POST',
+          body: JSON.stringify({ files: sampleFiles })
+        });
+        showMsg(res.message || 'Sample CSV Pack loaded successfully!', false);
+        if (log) log.innerHTML += nl + '[DEMO] ' + (res.message || 'Sample Pack loaded.');
+        await loadState();
+      } catch (err) {
+        showMsg(err.message, true);
+        if (log) log.innerHTML += nl + '[ERROR] Failed to load sample pack: ' + err.message;
+      }
+    }
+
     function populateSolverTerms() {
       const sel = document.getElementById('compileTermSelect');
       if (sel) {

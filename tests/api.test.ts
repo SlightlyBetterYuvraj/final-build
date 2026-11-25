@@ -169,4 +169,43 @@ describe('Phase 7 — HTTP API & Workflow Integration', () => {
     expect(inboxData.notices.length).toBeGreaterThan(0);
     expect(inboxData.notices.some((n: any) => n.eventType === 'CLASS_CANCELLED')).toBe(true);
   });
+
+  it('POST /api/admin/curriculum/csv-import and /api/admin/wipe-database execute successfully', async () => {
+    // 1. Ingest sample CSVs
+    const sampleFiles = [
+      {
+        filename: 'academic_terms.csv',
+        content: 'id,year_label,semester_number,start_date,end_date,cycle,status\nterm_test,2026-2027,1,2026-08-01,2026-12-15,odd,active',
+      },
+      {
+        filename: 'rooms.csv',
+        content: 'id,room_number,building,floor,capacity,room_type,active\nroom_test_1,LT-TEST,Academic Block A,1,100,lecture,true',
+      },
+      {
+        filename: 'teachers.csv',
+        content: 'id,emp_id,name,email,active\nfac_test_1,EMPTEST,Dr. Test,test@jklu.edu.in,true',
+      },
+    ];
+
+    const importRes = await fetch(`${testServer.url}/api/admin/curriculum/csv-import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+      body: JSON.stringify({ files: sampleFiles }),
+    });
+    expect(importRes.status).toBe(200);
+    const importData = await importRes.json();
+    expect(importData.success).toBe(true);
+    expect(importData.counts.terms).toBe(1);
+    expect(importData.counts.rooms).toBe(1);
+    expect(importData.counts.teachers).toBe(1);
+
+    // 2. Wipe database
+    const wipeRes = await fetch(`${testServer.url}/api/admin/wipe-database`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    });
+    expect(wipeRes.status).toBe(200);
+    const wipeData = await wipeRes.json();
+    expect(wipeData.success).toBe(true);
+  });
 });

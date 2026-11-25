@@ -188,7 +188,15 @@ export class GeneratorAdapterService {
         teacherId: o.teacherId,
         targetType: o.targetType,
         targetId: o.targetId,
-        ...(o.component ? { component: o.component } : {}),
+        ...(o.component
+          ? { component: o.component }
+          : o.id.toLowerCase().includes('lab')
+          ? { component: 'P' }
+          : o.id.toLowerCase().includes('tut')
+          ? { component: 'T' }
+          : o.id.toLowerCase().includes('sec') || o.id.toLowerCase().includes('lec')
+          ? { component: 'L' }
+          : {}),
       })),
       electiveGroups: Array.from(state.electiveGroups.values())
         .filter((eg) => targetTermIds.includes(eg.termId))

@@ -91,6 +91,7 @@ export function validateDraftTimetable(
     );
     const effComponent = offering.component
       || (offering.id.endsWith('-L') ? 'L' : offering.id.endsWith('-P') ? 'P' : offering.id.endsWith('-T') ? 'T' : undefined)
+      || (offering.id.toLowerCase().includes('lab') ? 'P' : offering.id.toLowerCase().includes('tut') ? 'T' : offering.id.toLowerCase().includes('sec') || offering.id.toLowerCase().includes('lec') ? 'L' : undefined)
       || (offering.targetType === 'section' && hasBatchOfferingsForCourse ? 'L' : undefined)
       || (offering.targetType === 'batch' ? (course.practicalHours > 0 ? 'P' : 'T') : undefined);
 

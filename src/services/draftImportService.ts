@@ -179,9 +179,21 @@ export class DraftImportService {
         const firstTerm = Array.from(tx.academicTerms.values())[0];
         if (firstTerm) targetTermId = firstTerm.id;
       }
-      if (!targetTermId) targetTermId = 'term-sem1';
+      if (!targetTermId) targetTermId = 'term_2026_sem1';
 
-      if (isDbConfigured() && targetTermId && tx.academicTerms.has(targetTermId)) {
+      if (!tx.academicTerms.has(targetTermId)) {
+        tx.academicTerms.set(targetTermId, {
+          id: targetTermId,
+          yearLabel: '2026-2027',
+          semesterNumber: 1,
+          startDate: '2026-08-01',
+          endDate: '2026-12-15',
+          cycle: 'odd',
+          status: 'active',
+        });
+      }
+
+      if (isDbConfigured()) {
         await persistAcademicTermToDb(tx.academicTerms.get(targetTermId)!).catch(() => {});
       }
 

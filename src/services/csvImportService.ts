@@ -1,13 +1,7 @@
 import { TimetableRepository } from '../data/repository.js';
 import {
   isDbConfigured,
-  persistAcademicTermToDb,
-  persistSectionToDb,
-  persistBatchToDb,
-  persistRoomToDb,
-  persistTeacherToDb,
-  persistCourseToDb,
-  persistOfferingToDb,
+  bulkPersistCurriculumToDb,
 } from '../data/dbSync.js';
 import { ensureCourseColorsInRepository } from './courseService.js';
 import {
@@ -88,6 +82,15 @@ export async function importCurriculumCsvFiles(
     };
   });
 
+  const allTerms: AcademicTerm[] = [];
+  const allSections: Section[] = [];
+  const allBatches: Batch[] = [];
+  const allRooms: Room[] = [];
+  const allTeachers: Teacher[] = [];
+  const allCourses: Course[] = [];
+  const allOfferings: CourseOffering[] = [];
+  const allStudents: Student[] = [];
+
   await repo.runTransaction(async (tx) => {
     // 1. Academic Terms
     for (const f of parsedFiles) {
@@ -104,8 +107,8 @@ export async function importCurriculumCsvFiles(
             status: 'active',
           };
           tx.academicTerms.set(term.id, term);
+          allTerms.push(term);
           counts.terms++;
-          if (isDbConfigured()) await persistAcademicTermToDb(term);
         }
       }
     }
@@ -123,8 +126,8 @@ export async function importCurriculumCsvFiles(
             active: r.active !== 'false',
           };
           tx.sections.set(sec.id, sec);
+          allSections.push(sec);
           counts.sections++;
-          if (isDbConfigured()) await persistSectionToDb(sec);
         }
       }
     }
@@ -142,8 +145,8 @@ export async function importCurriculumCsvFiles(
             active: r.active !== 'false',
           };
           tx.batches.set(batch.id, batch);
+          allBatches.push(batch);
           counts.batches++;
-          if (isDbConfigured()) await persistBatchToDb(batch);
         }
       }
     }
@@ -163,8 +166,8 @@ export async function importCurriculumCsvFiles(
             active: r.active !== 'false',
           };
           tx.rooms.set(room.id, room);
+          allRooms.push(room);
           counts.rooms++;
-          if (isDbConfigured()) await persistRoomToDb(room);
         }
       }
     }
@@ -182,8 +185,8 @@ export async function importCurriculumCsvFiles(
             active: r.active !== 'false',
           };
           tx.teachers.set(teacher.id, teacher);
+          allTeachers.push(teacher);
           counts.teachers++;
-          if (isDbConfigured()) await persistTeacherToDb(teacher);
         }
       }
     }
@@ -205,8 +208,8 @@ export async function importCurriculumCsvFiles(
               requiredRoomType: normalizeRoomType(r.required_room_type),
             };
             tx.courses.set(course.id, course);
+            allCourses.push(course);
             counts.courses++;
-            if (isDbConfigured()) await persistCourseToDb(course);
           }
         }
       }
@@ -226,8 +229,8 @@ export async function importCurriculumCsvFiles(
             targetId: r.target_id,
           };
           tx.courseOfferings.set(offering.id, offering);
+          allOfferings.push(offering);
           counts.offerings++;
-          if (isDbConfigured()) await persistOfferingToDb(offering);
         }
       }
     }
@@ -247,6 +250,7 @@ export async function importCurriculumCsvFiles(
             active: true,
           };
           tx.students.set(student.id, student);
+          allStudents.push(student);
 
           if (r.section_id) {
             tx.studentGroupMemberships.set(`mem_${id}_${r.section_id}`, {
@@ -271,6 +275,19 @@ export async function importCurriculumCsvFiles(
           counts.students++;
         }
       }
+    }
+
+    if (isDbConfigured()) {
+      await bulkPersistCurriculumToDb({
+        terms: allTerms,
+        sections: allSections,
+        batches: allBatches,
+        rooms: allRooms,
+        teachers: allTeachers,
+        courses: allCourses,
+        offerings: allOfferings,
+        students: allStudents,
+      });
     }
   });
 

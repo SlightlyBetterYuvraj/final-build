@@ -532,6 +532,136 @@ export async function persistExtraClassCancellationToDb(id: string): Promise<voi
   await db.query(`UPDATE extra_classes SET status = 'cancelled' WHERE id = $1`, [id]);
 }
 
+export interface BulkCurriculumData {
+  terms: AcademicTerm[];
+  sections: Section[];
+  batches: Batch[];
+  rooms: Room[];
+  teachers: Teacher[];
+  courses: Course[];
+  offerings: CourseOffering[];
+  students: Student[];
+}
+
+function buildBatchInsert(table: string, columns: string[], rows: any[][], conflictKey: string, updateCols: string[]) {
+  if (rows.length === 0) return null;
+  const valuesPlaceholders: string[] = [];
+  const params: any[] = [];
+  let paramIdx = 1;
+
+  for (const row of rows) {
+    const rowPlaceholders: string[] = [];
+    for (const val of row) {
+      rowPlaceholders.push(`$${paramIdx++}`);
+      params.push(val);
+    }
+    valuesPlaceholders.push(`(${rowPlaceholders.join(', ')})`);
+  }
+
+  const updates = updateCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ');
+  const sql = `INSERT INTO ${table} (${columns.join(', ')})
+    VALUES ${valuesPlaceholders.join(', ')}
+    ON CONFLICT (${conflictKey}) ${updates ? `DO UPDATE SET ${updates}` : 'DO NOTHING'};`;
+
+  return { sql, params };
+}
+
+export async function bulkPersistCurriculumToDb(data: BulkCurriculumData): Promise<void> {
+  if (!isDbConfigured()) return;
+  const db = getDbPool();
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Academic Terms
+    const termBatch = buildBatchInsert(
+      'academic_terms',
+      ['id', 'year_label', 'semester_number', 'start_date', 'end_date', 'cycle', 'status'],
+      data.terms.map((t) => [t.id, t.yearLabel, t.semesterNumber, t.startDate, t.endDate, t.cycle, t.status]),
+      'id',
+      ['year_label', 'semester_number', 'status']
+    );
+    if (termBatch) await client.query(termBatch.sql, termBatch.params);
+
+    // 2. Sections
+    const secBatch = buildBatchInsert(
+      'sections',
+      ['id', 'term_id', 'name', 'expected_count', 'active'],
+      data.sections.map((s) => [s.id, s.termId, s.name, s.expectedCount, s.active]),
+      'id',
+      ['name', 'expected_count', 'active']
+    );
+    if (secBatch) await client.query(secBatch.sql, secBatch.params);
+
+    // 3. Batches
+    const batchBatch = buildBatchInsert(
+      'batches',
+      ['id', 'section_id', 'name', 'expected_count', 'active'],
+      data.batches.map((b) => [b.id, b.sectionId, b.name, b.expectedCount, b.active]),
+      'id',
+      ['name', 'expected_count', 'active']
+    );
+    if (batchBatch) await client.query(batchBatch.sql, batchBatch.params);
+
+    // 4. Rooms
+    const roomBatch = buildBatchInsert(
+      'rooms',
+      ['id', 'room_number', 'building', 'floor', 'capacity', 'room_type', 'active'],
+      data.rooms.map((r) => [r.id, r.roomNumber, r.building, r.floor, r.capacity, r.roomType, r.active]),
+      'id',
+      ['room_number', 'capacity', 'room_type', 'active']
+    );
+    if (roomBatch) await client.query(roomBatch.sql, roomBatch.params);
+
+    // 5. Teachers
+    const teachBatch = buildBatchInsert(
+      'teachers',
+      ['id', 'emp_id', 'name', 'email', 'active'],
+      data.teachers.map((t) => [t.id, t.empId, t.name, t.email, t.active]),
+      'id',
+      ['name', 'email', 'active']
+    );
+    if (teachBatch) await client.query(teachBatch.sql, teachBatch.params);
+
+    // 6. Courses
+    const courseBatch = buildBatchInsert(
+      'courses',
+      ['id', 'code', 'name', 'term_id', 'lecture_hours', 'tutorial_hours', 'practical_hours', 'required_room_type'],
+      data.courses.map((c) => [c.id, c.code, c.name, c.termId, c.lectureHours, c.tutorialHours, c.practicalHours, c.requiredRoomType]),
+      'id',
+      ['name', 'term_id', 'lecture_hours', 'tutorial_hours', 'practical_hours', 'required_room_type']
+    );
+    if (courseBatch) await client.query(courseBatch.sql, courseBatch.params);
+
+    // 7. Course Offerings
+    const offBatch = buildBatchInsert(
+      'course_offerings',
+      ['id', 'course_id', 'term_id', 'teacher_id', 'target_type', 'target_id'],
+      data.offerings.map((o) => [o.id, o.courseId, o.termId, o.teacherId, o.targetType, o.targetId]),
+      'id',
+      ['course_id', 'term_id', 'teacher_id', 'target_type', 'target_id']
+    );
+    if (offBatch) await client.query(offBatch.sql, offBatch.params);
+
+    // 8. Students
+    const studBatch = buildBatchInsert(
+      'students',
+      ['id', 'roll_number', 'name', 'email', 'active'],
+      data.students.map((s) => [s.id, s.rollNumber, s.name, s.email, s.active]),
+      'id',
+      ['name', 'email', 'active']
+    );
+    if (studBatch) await client.query(studBatch.sql, studBatch.params);
+
+    await client.query('COMMIT');
+  } catch (err: any) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 /**
  * Persists an imported draft version and scheduled classes into Supabase PostgreSQL (BE-02, BE-10).
  */
@@ -541,6 +671,14 @@ export async function persistDraftImportToDb(version: TimetableVersion, classes:
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    if (version.termId) {
+      await client.query(
+        `INSERT INTO academic_terms (id, year_label, semester_number, start_date, end_date, cycle, status)
+         VALUES ($1, '2026-2027', 1, '2026-08-01', '2026-12-15', 'odd', 'active')
+         ON CONFLICT (id) DO NOTHING;`,
+        [version.termId]
+      );
+    }
     await client.query(
       `INSERT INTO timetable_versions (id, term_id, version_number, status, input_revision, created_by, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -578,6 +716,14 @@ export async function persistPublicationToDb(
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    if (publishedVersion.termId) {
+      await client.query(
+        `INSERT INTO academic_terms (id, year_label, semester_number, start_date, end_date, cycle, status)
+         VALUES ($1, '2026-2027', 1, '2026-08-01', '2026-12-15', 'odd', 'active')
+         ON CONFLICT (id) DO NOTHING;`,
+        [publishedVersion.termId]
+      );
+    }
     if (priorVersionId) {
       await client.query(`UPDATE timetable_versions SET status = 'superseded' WHERE id = $1`, [priorVersionId]);
       await client.query(

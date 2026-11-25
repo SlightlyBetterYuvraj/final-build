@@ -114,8 +114,17 @@ def solve_timetable(package: Dict[str, Any], time_limit_seconds: int = 20) -> Di
         elif off["targetType"] == "batch" and off["targetId"] in batch_by_id:
             group_size = batch_by_id[off["targetId"]].get("expectedCount", 30)
 
-        # Determine component: section targets get lectures; batch targets get practicals & tutorials
+        # Determine component: infer from explicit field or offering ID tokens ('lab', 'tut', 'sec', 'lec')
         off_comp = off.get("component")
+        if not off_comp:
+            oid_l = off["id"].lower()
+            if "lab" in oid_l or "practical" in oid_l:
+                off_comp = "P"
+            elif "tut" in oid_l:
+                off_comp = "T"
+            elif "sec" in oid_l or "lec" in oid_l:
+                off_comp = "L"
+
         is_section = off["targetType"] == "section"
         is_batch = off["targetType"] == "batch"
 

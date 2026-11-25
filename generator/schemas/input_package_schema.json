@@ -1,0 +1,187 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TimetableGenerationInputPackage",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "packageId",
+    "inputRevision",
+    "createdAt",
+    "termIds",
+    "grid",
+    "rooms",
+    "teachers",
+    "courses",
+    "courseOfferings"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "packageId": { "type": "string" },
+    "inputRevision": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "termIds": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "grid": {
+      "type": "object",
+      "required": ["days", "slotsPerDay", "slots"],
+      "properties": {
+        "days": { "type": "array", "items": { "type": "integer" } },
+        "slotsPerDay": { "type": "integer" },
+        "slots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["dayOfWeek", "slotIndex", "startTime", "endTime"],
+            "properties": {
+              "dayOfWeek": { "type": "integer" },
+              "slotIndex": { "type": "integer" },
+              "startTime": { "type": "string" },
+              "endTime": { "type": "string" },
+              "isBreak": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "rooms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "roomNumber", "building", "floor", "capacity", "roomType"],
+        "properties": {
+          "id": { "type": "string" },
+          "roomNumber": { "type": "string" },
+          "building": { "type": "string" },
+          "floor": { "type": "integer" },
+          "capacity": { "type": "integer" },
+          "roomType": { "type": "string", "enum": ["LT", "P"] }
+        }
+      }
+    },
+    "teachers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "empId", "name"],
+        "properties": {
+          "id": { "type": "string" },
+          "empId": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      }
+    },
+    "teacherAvailabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["teacherId", "dayOfWeek", "slotIndex", "isAvailable"],
+        "properties": {
+          "teacherId": { "type": "string" },
+          "dayOfWeek": { "type": "integer" },
+          "slotIndex": { "type": "integer" },
+          "isAvailable": { "type": "boolean" }
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "termId", "name", "expectedCount"],
+        "properties": {
+          "id": { "type": "string" },
+          "termId": { "type": "string" },
+          "name": { "type": "string" },
+          "expectedCount": { "type": "integer" }
+        }
+      }
+    },
+    "batches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "sectionId", "name", "expectedCount"],
+        "properties": {
+          "id": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "name": { "type": "string" },
+          "expectedCount": { "type": "integer" }
+        }
+      }
+    },
+    "courses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "code", "name", "termId", "lectureHours", "tutorialHours", "practicalHours", "requiredRoomType"],
+        "properties": {
+          "id": { "type": "string" },
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "termId": { "type": "string" },
+          "lectureHours": { "type": "integer" },
+          "tutorialHours": { "type": "integer" },
+          "practicalHours": { "type": "integer" },
+          "requiredRoomType": { "type": "string", "enum": ["LT", "P"] }
+        }
+      }
+    },
+    "courseOfferings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "courseId", "termId", "teacherId", "targetType", "targetId"],
+        "properties": {
+          "id": { "type": "string" },
+          "courseId": { "type": "string" },
+          "termId": { "type": "string" },
+          "teacherId": { "type": "string" },
+          "targetType": { "type": "string", "enum": ["section", "batch", "elective_group"] },
+          "targetId": { "type": "string" },
+          "component": { "type": "string", "enum": ["L", "T", "P"] }
+        }
+      }
+    },
+    "electiveGroups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "termId", "name"],
+        "properties": {
+          "id": { "type": "string" },
+          "termId": { "type": "string" },
+          "courseId": { "type": "string" },
+          "name": { "type": "string" },
+          "expectedCount": { "type": "integer" }
+        }
+      }
+    },
+    "electiveAssignments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "studentId", "electiveGroupId"],
+        "properties": {
+          "id": { "type": "string" },
+          "studentId": { "type": "string" },
+          "electiveGroupId": { "type": "string" }
+        }
+      }
+    },
+    "studentMemberships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "studentId", "groupId", "groupType"],
+        "properties": {
+          "id": { "type": "string" },
+          "studentId": { "type": "string" },
+          "groupId": { "type": "string" },
+          "groupType": { "type": "string", "enum": ["section", "batch"] }
+        }
+      }
+    }
+  }
+}

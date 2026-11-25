@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TimetableDraftOutputSchema",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "packageId",
+    "inputRevision",
+    "generatorVersion",
+    "generatedAt",
+    "status",
+    "termIds",
+    "classes",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "packageId": { "type": "string" },
+    "inputRevision": { "type": "string" },
+    "generatorVersion": { "type": "string" },
+    "generatedAt": { "type": "string" },
+    "status": { "type": "string", "enum": ["succeeded", "infeasible", "failed"] },
+    "termIds": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "courseOfferingId",
+          "termId",
+          "dayOfWeek",
+          "startSlot",
+          "duration",
+          "activityType",
+          "teacherId",
+          "roomId",
+          "targetType",
+          "targetId",
+          "status"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "courseOfferingId": { "type": "string" },
+          "termId": { "type": "string" },
+          "dayOfWeek": { "type": "integer" },
+          "startSlot": { "type": "integer" },
+          "duration": { "type": "integer", "enum": [1, 2] },
+          "activityType": { "type": "string", "enum": ["L", "T", "P"] },
+          "teacherId": { "type": "string" },
+          "roomId": { "type": "string" },
+          "targetType": { "type": "string", "enum": ["section", "batch", "elective_group"] },
+          "targetId": { "type": "string" },
+          "status": { "type": "string", "enum": ["scheduled", "cancelled"] }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "required": ["solveTimeMs", "statusString", "conflicts"],
+      "properties": {
+        "solveTimeMs": { "type": "number" },
+        "statusString": { "type": "string" },
+        "conflicts": { "type": "array", "items": { "type": "string" } },
+        "infeasibilityReason": { "type": "string" }
+      }
+    }
+  }
+}

@@ -6731,8 +6731,8 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
             'id,room_number,building,floor,capacity,room_type,active',
             'room_lt1,LT-1,Academic Block A,1,100,lecture,true',
             'room_lt2,LT-2,Academic Block A,1,80,lecture,true',
-            'room_lab1,Lab-1,Computing Block,2,35,lab,true',
-            'room_lab2,Lab-2,Computing Block,2,35,lab,true',
+            'room_lab1,Lab-1,Computing Block,2,70,lab,true',
+            'room_lab2,Lab-2,Computing Block,2,70,lab,true',
             'room_tut1,T-101,Academic Block A,2,40,tutorial,true'
           ].join(nl)
         },

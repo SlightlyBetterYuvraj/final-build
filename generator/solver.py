@@ -78,6 +78,11 @@ def solve_timetable(package: Dict[str, Any], time_limit_seconds: int = 20) -> Di
         if not ta.get("isAvailable", True):
             teacher_unavail_set.add((ta["teacherId"], ta["dayOfWeek"], ta["slotIndex"]))
 
+    # Pre-index courses with batch offerings to know if practicals/tutorials are partitioned by batch
+    has_batch_offerings_by_course = {
+        off["courseId"] for off in offerings if off.get("targetType") == "batch"
+    }
+
     # 2. Decompose course offerings into required sessions
     sessions = []
     session_id_counter = 1
@@ -87,6 +92,7 @@ def solve_timetable(package: Dict[str, Any], time_limit_seconds: int = 20) -> Di
         course = course_by_id.get(cid)
         if not course:
             continue
+        has_batches = cid in has_batch_offerings_by_course
         
         # Check odd practical hours (D07/D44)
         if course["practicalHours"] % 2 != 0:
@@ -146,8 +152,8 @@ def solve_timetable(package: Dict[str, Any], time_limit_seconds: int = 20) -> Di
                 })
                 session_id_counter += 1
 
-        # Tutorial sessions (for batch targets or section if no batches)
-        if off_comp == "T" or (not off_comp and (is_batch or (is_section and course.get("practicalHours", 0) == 0))):
+        # Tutorial sessions (for batch targets or section if no batch offerings for this course)
+        if off_comp == "T" or (not off_comp and (is_batch or not has_batches)):
             for i in range(course.get("tutorialHours", 0)):
                 sessions.append({
                     "id": f"sess-{session_id_counter}",
@@ -164,8 +170,8 @@ def solve_timetable(package: Dict[str, Any], time_limit_seconds: int = 20) -> Di
                 })
                 session_id_counter += 1
 
-        # Practical sessions (each duration 2, for batch targets or explicit 'P')
-        if off_comp == "P" or (not off_comp and is_batch):
+        # Practical sessions (each duration 2, for batch targets or section if no batch offerings for this course)
+        if off_comp == "P" or (not off_comp and (is_batch or not has_batches)):
             lab_count = course.get("practicalHours", 0) // 2
             for i in range(lab_count):
                 sessions.append({

@@ -51,7 +51,8 @@ import {
   persistCourseToDb,
   persistOfferingToDb,
   persistNotificationToDb,
-  wipeAuthoritativeDatabase
+  wipeAuthoritativeDatabase,
+  hydrateRepositoryFromDatabase
 } from '../data/dbSync.js';
 import { getSupabaseAdminClient, isSupabaseAdminConfigured, isSupabaseConfigured } from '../data/supabase.js';
 
@@ -1153,10 +1154,13 @@ export function createApp(initialRepo?: TimetableRepository) {
   // --------------------------------------------------------------------------
   // 6. Generation Contract & Fallback Endpoints
   // --------------------------------------------------------------------------
-  app.post('/api/generation/compile-package', requireRole(['admin']), (req: Request, res: Response) => {
+  app.post('/api/generation/compile-package', requireRole(['admin']), async (req: Request, res: Response) => {
     try {
       const session = getSession(req);
       const { termIds, scope } = req.body;
+      if (isDbConfigured() && (!termIds || (Array.isArray(termIds) && termIds.some((tid: string) => !repo.getState().academicTerms.has(tid))))) {
+        await hydrateRepositoryFromDatabase(repo);
+      }
       const { package: pkg, runId } = genAdapter.exportGenerationInputPackage(session, termIds, scope);
 
       const state = repo.getState();
@@ -1229,6 +1233,9 @@ export function createApp(initialRepo?: TimetableRepository) {
       const session = getSession(req);
       const directlyPublish = Boolean(req.body.directlyPublish);
       const termIds = req.body.termIds || (req.body.termId ? [req.body.termId] : undefined);
+      if (isDbConfigured() && (!termIds || termIds.some((tid: string) => !repo.getState().academicTerms.has(tid)))) {
+        await hydrateRepositoryFromDatabase(repo);
+      }
       const result = await genAdapter.requestGeneration(session, termIds, req.body.scope, { directlyPublish });
       res.json(result);
     } catch (err: any) {

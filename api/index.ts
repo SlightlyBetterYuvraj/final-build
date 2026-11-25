@@ -9,15 +9,13 @@ const app = createApp(repo);
 let hydrationPromise: Promise<void> | null = null;
 
 async function ensureHydrated() {
-  if (!hydrationPromise) {
+  if (isDbConfigured() && (!hydrationPromise || repo.getState().academicTerms.size === 0)) {
     hydrationPromise = (async () => {
-      if (isDbConfigured()) {
-        try {
-          await hydrateRepositoryFromDatabase(repo);
-          ensureCourseColorsInRepository(repo);
-        } catch (e) {
-          console.error('[Vercel] DB Hydration warning:', e);
-        }
+      try {
+        await hydrateRepositoryFromDatabase(repo);
+        ensureCourseColorsInRepository(repo);
+      } catch (e) {
+        console.error('[Vercel] DB Hydration warning:', e);
       }
     })();
   }

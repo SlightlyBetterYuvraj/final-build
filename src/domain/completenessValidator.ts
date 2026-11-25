@@ -86,9 +86,17 @@ export function validateDraftTimetable(
     }
 
     // Aggregate required sessions by type (filtered by offering component if specified)
+    const hasBatchOfferingsForCourse = Array.from(courseOfferings.values()).some(
+      (o) => o.courseId === offering.courseId && o.targetType === 'batch'
+    );
+    const effComponent = offering.component
+      || (offering.id.endsWith('-L') ? 'L' : offering.id.endsWith('-P') ? 'P' : offering.id.endsWith('-T') ? 'T' : undefined)
+      || (offering.targetType === 'section' && hasBatchOfferingsForCourse ? 'L' : undefined)
+      || (offering.targetType === 'batch' ? (course.practicalHours > 0 ? 'P' : 'T') : undefined);
+
     const counts = new Map<string, number>();
     for (const s of sessions) {
-      if (!offering.component || offering.component === s.activityType) {
+      if (!effComponent || effComponent === s.activityType) {
         counts.set(s.activityType, (counts.get(s.activityType) || 0) + 1);
       }
     }

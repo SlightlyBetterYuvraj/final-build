@@ -2575,8 +2575,9 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
                 </p>
               </div>
               <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button class="btn btn-secondary" onclick="resetToSimpleMockData()" style="padding: 8px 14px; font-size: 12px; color:#F43F5E;">${ICONS.trash} Reset Data</button>
-                <button class="btn btn-primary" onclick="loadDemoSchedule()" style="padding: 8px 14px; font-size: 12px;">${ICONS.solver} 1-Click Demo</button>
+                <button class="btn btn-secondary" onclick="handleWipeDatabase()" style="padding: 8px 14px; font-size: 12px; color:#DC2626; border-color:#FECACA; background:#FEF2F2; font-weight:700;">${ICONS.trash} Wipe Database</button>
+                <button class="btn btn-secondary" onclick="resetToSimpleMockData()" style="padding: 8px 14px; font-size: 12px; color:var(--text);">${ICONS.solver} Load Solver Fixture</button>
+                <button class="btn btn-primary" onclick="loadDemoSchedule()" style="padding: 8px 14px; font-size: 12px;">${ICONS.sparkles} 1-Click Demo</button>
               </div>
             </div>
           </div>
@@ -5068,6 +5069,17 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
     }
 
     // Reset and Demo schedule loaders
+    async function handleWipeDatabase() {
+      if (!confirm('Wipe the entire database clean? All timetables, courses, and venues will be removed.')) return;
+      try {
+        const res = await api('/api/admin/wipe-database', { method: 'POST' });
+        showMsg(res.message || 'Database wiped 100% clean!', false);
+        await loadState();
+      } catch (err) {
+        showMsg(err.message, true);
+      }
+    }
+
     async function resetToSimpleMockData() {
       if (!confirm('Reset campus state to single-cohort simple mock data?')) return;
       try {

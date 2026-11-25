@@ -355,6 +355,31 @@ export class TimetableRepository {
       populateSimpleMockData(tx);
     });
   }
+
+  /**
+   * Completely wipes all in-memory academic, venue, and timetable data.
+   */
+  public async clearAllAcademicData(): Promise<void> {
+    await this.runTransaction(async (tx) => {
+      tx.academicTerms.clear();
+      tx.sections.clear();
+      tx.batches.clear();
+      tx.students.clear();
+      tx.studentGroupMemberships.clear();
+      tx.electiveGroups.clear();
+      tx.electiveAssignments.clear();
+      tx.teachers.clear();
+      tx.teacherAvailabilities.clear();
+      tx.teacherUnavailabilityRequests.clear();
+      tx.rooms.clear();
+      tx.courses.clear();
+      tx.courseOfferings.clear();
+      tx.timetableVersions.clear();
+      tx.scheduledClasses.clear();
+      tx.classOccurrences.clear();
+      tx.classOccurrenceEvents.clear();
+    });
+  }
 }
 
 /**

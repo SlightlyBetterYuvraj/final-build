@@ -49,7 +49,8 @@ import {
   persistTeacherToDb,
   persistCourseToDb,
   persistOfferingToDb,
-  persistNotificationToDb
+  persistNotificationToDb,
+  wipeAuthoritativeDatabase
 } from '../data/dbSync.js';
 import { getSupabaseAdminClient, isSupabaseAdminConfigured, isSupabaseConfigured } from '../data/supabase.js';
 
@@ -1461,6 +1462,22 @@ export function createApp(initialRepo?: TimetableRepository) {
       });
     } catch (err: any) {
       res.status(400).json({ success: false, error: err.message });
+    }
+  });
+
+  // Fast One-Click Full Database Wipe (Presentation & Clean Slate Endpoint)
+  app.post('/api/admin/wipe-database', requireRole(['admin']), async (req: Request, res: Response) => {
+    try {
+      if (isDbConfigured()) {
+        await wipeAuthoritativeDatabase();
+      }
+      await repo.clearAllAcademicData();
+      res.json({
+        success: true,
+        message: 'Database wiped 100% clean! All academic, timetable, and venue records cleared.'
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 

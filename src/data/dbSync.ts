@@ -849,3 +849,42 @@ export async function persistNotificationToDb(notice: {
   }
 }
 
+/**
+ * Truncates all authoritative academic, timetable, and venue tables in Supabase PostgreSQL.
+ * Preserves user accounts and profiles.
+ */
+export async function wipeAuthoritativeDatabase(): Promise<void> {
+  if (!isDbConfigured()) return;
+  const pool = getDbPool();
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      TRUNCATE TABLE 
+        public.class_occurrence_events,
+        public.class_occurrences,
+        public.extra_classes,
+        public.notification_outbox,
+        public.audit_events,
+        public.teacher_unavailability_requests,
+        public.teacher_availability,
+        public.scheduled_classes,
+        public.timetable_versions,
+        public.student_group_memberships,
+        public.elective_assignments,
+        public.elective_groups,
+        public.course_offerings,
+        public.courses,
+        public.students,
+        public.teachers,
+        public.rooms,
+        public.batches,
+        public.sections,
+        public.academic_terms
+      CASCADE;
+    `);
+  } finally {
+    client.release();
+  }
+}
+
+

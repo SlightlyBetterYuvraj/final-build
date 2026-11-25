@@ -105,7 +105,7 @@ export async function importCurriculumCsvFiles(
           };
           tx.academicTerms.set(term.id, term);
           counts.terms++;
-          if (isDbConfigured()) persistAcademicTermToDb(term).catch(() => {});
+          if (isDbConfigured()) await persistAcademicTermToDb(term);
         }
       }
     }
@@ -124,7 +124,7 @@ export async function importCurriculumCsvFiles(
           };
           tx.sections.set(sec.id, sec);
           counts.sections++;
-          if (isDbConfigured()) persistSectionToDb(sec).catch(() => {});
+          if (isDbConfigured()) await persistSectionToDb(sec);
         }
       }
     }
@@ -143,7 +143,7 @@ export async function importCurriculumCsvFiles(
           };
           tx.batches.set(batch.id, batch);
           counts.batches++;
-          if (isDbConfigured()) persistBatchToDb(batch).catch(() => {});
+          if (isDbConfigured()) await persistBatchToDb(batch);
         }
       }
     }
@@ -164,7 +164,7 @@ export async function importCurriculumCsvFiles(
           };
           tx.rooms.set(room.id, room);
           counts.rooms++;
-          if (isDbConfigured()) persistRoomToDb(room).catch(() => {});
+          if (isDbConfigured()) await persistRoomToDb(room);
         }
       }
     }
@@ -183,7 +183,7 @@ export async function importCurriculumCsvFiles(
           };
           tx.teachers.set(teacher.id, teacher);
           counts.teachers++;
-          if (isDbConfigured()) persistTeacherToDb(teacher).catch(() => {});
+          if (isDbConfigured()) await persistTeacherToDb(teacher);
         }
       }
     }
@@ -206,7 +206,7 @@ export async function importCurriculumCsvFiles(
             };
             tx.courses.set(course.id, course);
             counts.courses++;
-            if (isDbConfigured()) persistCourseToDb(course).catch(() => {});
+            if (isDbConfigured()) await persistCourseToDb(course);
           }
         }
       }
@@ -227,7 +227,7 @@ export async function importCurriculumCsvFiles(
           };
           tx.courseOfferings.set(offering.id, offering);
           counts.offerings++;
-          if (isDbConfigured()) persistOfferingToDb(offering).catch(() => {});
+          if (isDbConfigured()) await persistOfferingToDb(offering);
         }
       }
     }

@@ -12,7 +12,7 @@ import {
 import { validateDraftTimetable } from '../domain/completenessValidator.js';
 import { ValidationContext } from '../domain/conflictValidator.js';
 import { computeInputRevision } from '../domain/revision.js';
-import { isDbConfigured, persistDraftImportToDb } from '../data/dbSync.js';
+import { isDbConfigured, persistDraftImportToDb, persistAcademicTermToDb } from '../data/dbSync.js';
 import { AuthSession } from './authService.js';
 import crypto from 'crypto';
 
@@ -174,9 +174,20 @@ export class DraftImportService {
         }
       }
 
+      let targetTermId = draftPayload.termIds && draftPayload.termIds[0];
+      if (!targetTermId || !tx.academicTerms.has(targetTermId)) {
+        const firstTerm = Array.from(tx.academicTerms.values())[0];
+        if (firstTerm) targetTermId = firstTerm.id;
+      }
+      if (!targetTermId) targetTermId = 'term-sem1';
+
+      if (isDbConfigured() && targetTermId && tx.academicTerms.has(targetTermId)) {
+        await persistAcademicTermToDb(tx.academicTerms.get(targetTermId)!).catch(() => {});
+      }
+
       const versionRecord: TimetableVersion = {
         id: draftVersionId,
-        termId: draftPayload.termIds[0] || 'default-term',
+        termId: targetTermId,
         versionNumber: maxVersionNum + 1,
         status: 'draft', // D48: strictly saved as draft, never automatically published
         inputRevision: draftPayload.inputRevision,

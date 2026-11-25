@@ -114,11 +114,14 @@ def solve_timetable(package: Dict[str, Any], time_limit_seconds: int = 20) -> Di
         elif off["targetType"] == "batch" and off["targetId"] in batch_by_id:
             group_size = batch_by_id[off["targetId"]].get("expectedCount", 30)
 
+        # Determine component: section targets get lectures; batch targets get practicals & tutorials
         off_comp = off.get("component")
+        is_section = off["targetType"] == "section"
+        is_batch = off["targetType"] == "batch"
 
-        # Lecture sessions
-        if not off_comp or off_comp == "L":
-            for i in range(course["lectureHours"]):
+        # Lecture sessions (only for section targets or explicit 'L')
+        if off_comp == "L" or (not off_comp and is_section):
+            for i in range(course.get("lectureHours", 0)):
                 sessions.append({
                     "id": f"sess-{session_id_counter}",
                     "offeringId": off["id"],
@@ -134,9 +137,9 @@ def solve_timetable(package: Dict[str, Any], time_limit_seconds: int = 20) -> Di
                 })
                 session_id_counter += 1
 
-        # Tutorial sessions
-        if not off_comp or off_comp == "T":
-            for i in range(course["tutorialHours"]):
+        # Tutorial sessions (for batch targets or section if no batches)
+        if off_comp == "T" or (not off_comp and (is_batch or (is_section and course.get("practicalHours", 0) == 0))):
+            for i in range(course.get("tutorialHours", 0)):
                 sessions.append({
                     "id": f"sess-{session_id_counter}",
                     "offeringId": off["id"],
@@ -152,9 +155,9 @@ def solve_timetable(package: Dict[str, Any], time_limit_seconds: int = 20) -> Di
                 })
                 session_id_counter += 1
 
-        # Practical sessions (each duration 2)
-        if not off_comp or off_comp == "P":
-            lab_count = course["practicalHours"] // 2
+        # Practical sessions (each duration 2, for batch targets or explicit 'P')
+        if off_comp == "P" or (not off_comp and is_batch):
+            lab_count = course.get("practicalHours", 0) // 2
             for i in range(lab_count):
                 sessions.append({
                     "id": f"sess-{session_id_counter}",
@@ -293,58 +296,59 @@ def solve_timetable(package: Dict[str, Any], time_limit_seconds: int = 20) -> Di
     # A session for Section A conflicts with a session for its constituent Batch A1 at the same (d, t)
     for (d, t, sec_id), w_vars in section_whole_vars.items():
         for batch in batches:
-            if batch["sectionId"] == sec_id:
+            if batch.get("sectionId") == sec_id:
                 b_vars = batch_vars.get((d, t, batch["id"]), [])
-                for wv in w_vars:
-                    for bv in b_vars:
-                        model.Add(wv + bv <= 1)
+                if w_vars and b_vars:
+                    model.Add(sum(w_vars) + sum(b_vars) <= 1)
 
     # Apply Student-Level Overlap across Section, Batch, and Elective Cohorts (BE-09)
     for (d, t, sid), s_vars in student_slot_vars.items():
         if len(s_vars) > 1:
             model.Add(sum(s_vars) <= 1)
 
-    # 5. Soft objectives: distribute classes evenly across days and balance teacher load (BE-08)
-    penalties = []
-    target_daily_avg = max(1, len(sessions) // len(days)) if days else 1
+    # 5. Soft objectives (optional optimization)
+    if package.get("optimize", False):
+        penalties = []
+        target_daily_avg = max(1, len(sessions) // len(days)) if days else 1
 
-    for d in days:
-        day_vars = []
-        for i in range(len(sessions)):
+        day_vars_map = {d: [] for d in days}
+        teacher_day_vars_map = {}
+        for i, sess in enumerate(sessions):
+            tid = sess["teacherId"]
             for sd, ss, sr, sv in session_vars[i]:
-                if sd == d:
-                    day_vars.append(sv)
-        day_cnt = model.NewIntVar(0, len(sessions), f"day_count_{d}")
-        model.Add(day_cnt == sum(day_vars))
-        day_dev = model.NewIntVar(0, len(sessions), f"day_dev_{d}")
-        model.Add(day_dev >= day_cnt - target_daily_avg)
-        model.Add(day_dev >= target_daily_avg - day_cnt)
-        penalties.append(day_dev * 10)
+                if sd in day_vars_map:
+                    day_vars_map[sd].append(sv)
+                teacher_day_vars_map.setdefault((tid, sd), []).append(sv)
 
-    # Teacher spread: penalize heavy concentration of sessions on any single day
-    for t in teachers:
-        tid = t["id"]
         for d in days:
-            t_day_vars = []
-            for i, sess in enumerate(sessions):
-                if sess["teacherId"] == tid:
-                    for sd, ss, sr, sv in session_vars[i]:
-                        if sd == d:
-                            t_day_vars.append(sv)
-            if t_day_vars:
-                t_cnt = model.NewIntVar(0, len(sessions), f"t_cnt_{tid}_{d}")
-                model.Add(t_cnt == sum(t_day_vars))
-                t_heavy = model.NewIntVar(0, len(sessions), f"t_heavy_{tid}_{d}")
-                model.Add(t_heavy >= t_cnt - 4)
-                penalties.append(t_heavy * 20)
+            day_vars = day_vars_map[d]
+            if day_vars:
+                day_cnt = model.NewIntVar(0, len(sessions), f"day_count_{d}")
+                model.Add(day_cnt == sum(day_vars))
+                day_dev = model.NewIntVar(0, len(sessions), f"day_dev_{d}")
+                model.Add(day_dev >= day_cnt - target_daily_avg)
+                model.Add(day_dev >= target_daily_avg - day_cnt)
+                penalties.append(day_dev * 10)
 
-    if penalties:
-        model.Minimize(sum(penalties))
+        # Teacher spread
+        for t in teachers:
+            tid = t["id"]
+            for d in days:
+                t_day_vars = teacher_day_vars_map.get((tid, d), [])
+                if t_day_vars:
+                    t_cnt = model.NewIntVar(0, len(sessions), f"t_cnt_{tid}_{d}")
+                    model.Add(t_cnt == sum(t_day_vars))
+                    t_heavy = model.NewIntVar(0, len(sessions), f"t_heavy_{tid}_{d}")
+                    model.Add(t_heavy >= t_cnt - 4)
+                    penalties.append(t_heavy * 20)
+
+        if penalties:
+            model.Minimize(sum(penalties))
 
     # 6. Solve Model
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_seconds
-    solver.parameters.num_workers = 1 # Deterministic execution
+    solver.parameters.num_workers = 4
     
     status = solver.Solve(model)
     solve_duration_ms = (time.time() - start_time) * 1000

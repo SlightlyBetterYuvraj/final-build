@@ -31,3 +31,5 @@ yarn-error.log*
 Thumbs.db
 .env*
 temp_script.js
+__pycache__/
+*.pyc

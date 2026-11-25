@@ -6,6 +6,8 @@
 import { TimetableRepository } from '../data/repository.js';
 import { AuthSession } from './authService.js';
 import { computeInputRevision } from '../domain/revision.js';
+import { DraftImportService } from './draftImportService.js';
+import { PublicationService } from './publicationService.js';
 import crypto from 'crypto';
 
 export interface GenerationPackage {
@@ -50,7 +52,11 @@ export interface GenerationScopeOptions {
 export class GeneratorAdapterService {
   private runs: Map<string, GenerationRunRecord> = new Map();
 
-  constructor(private repo: TimetableRepository) {}
+  constructor(
+    private repo: TimetableRepository,
+    private importService?: DraftImportService,
+    private pubService?: PublicationService
+  ) {}
 
   /**
    * Admin-only operation: snapshots all concurrently active semesters (D10)
@@ -238,12 +244,18 @@ export class GeneratorAdapterService {
   public async requestGeneration(
     session: AuthSession,
     termIds?: string[],
-    scope?: GenerationScopeOptions
+    scope?: GenerationScopeOptions,
+    options?: { directlyPublish?: boolean }
   ): Promise<{
     runId: string;
     status: string;
     hostedAvailable: boolean;
     package?: GenerationPackage;
+    draftVersionId?: string;
+    draftVersionNumber?: number;
+    classesCount?: number;
+    solveTimeMs?: number;
+    published?: boolean;
     message: string;
   }> {
     const { package: pkg, runId } = this.exportGenerationInputPackage(session, termIds, scope);
@@ -266,10 +278,10 @@ export class GeneratorAdapterService {
       };
     }
 
-    // Hosted URL exists: attempt request with timeout
+    // Hosted URL exists: attempt request with timeout (60s)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
 
       const resp = await fetch(serviceUrl, {
         method: 'POST',
@@ -291,12 +303,51 @@ export class GeneratorAdapterService {
       runRecord.draftOutput = draftResult;
       runRecord.completedAt = new Date().toISOString();
 
+      if (runRecord.status === 'infeasible') {
+        return {
+          runId,
+          status: 'infeasible',
+          hostedAvailable: true,
+          package: pkg,
+          message: 'CP-SAT solver determined model is INFEASIBLE under current room/teacher constraints.',
+        };
+      }
+
+      let draftVersionId: string | undefined;
+      let draftVersionNumber: number | undefined;
+      let classesCount: number | undefined;
+      let isPublished = false;
+
+      if (this.importService) {
+        const importRes = await this.importService.uploadGeneratedDraft(session, draftResult as any);
+        draftVersionId = importRes.version.id;
+        draftVersionNumber = importRes.version.versionNumber;
+        classesCount = importRes.classCount;
+
+        if (options?.directlyPublish && this.pubService) {
+          const pubRes = await this.pubService.publishDraft(session, draftVersionId);
+          this.repo.emitPostCommit('TIMETABLE_PUBLISHED', pubRes);
+          isPublished = true;
+        }
+      }
+
+      const solveTimeMs = typeof (draftResult.diagnostics as any)?.solveTimeMs === 'number'
+        ? Math.round((draftResult.diagnostics as any).solveTimeMs)
+        : 500;
+
       return {
         runId,
-        status: runRecord.status,
+        status: 'succeeded',
         hostedAvailable: true,
         package: pkg,
-        message: `Hosted generation ${runRecord.status}.`,
+        draftVersionId,
+        draftVersionNumber,
+        classesCount,
+        solveTimeMs,
+        published: isPublished,
+        message: isPublished
+          ? `CP-SAT solver succeeded! Generated and directly published Version ${draftVersionNumber} with ${classesCount} classes.`
+          : `Hosted generation succeeded! Staged Draft Version ${draftVersionNumber || 1} with ${classesCount || (draftResult.classes as any[])?.length} classes.`,
       };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);

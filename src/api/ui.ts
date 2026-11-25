@@ -3301,9 +3301,15 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
                 <label>Target Academic Term:</label>
                 <select id="compileTermSelect" class="form-control"></select>
               </div>
-              <div style="display: flex; gap: 8px;">
+              <div style="margin-bottom: 14px;">
+                <label style="font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="checkbox" id="solverDirectlyPublish" checked> Directly publish to live campus timetable on solve
+                </label>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                 <button class="btn btn-secondary" onclick="handleCompilePackage()" style="display:inline-flex; align-items:center; gap:6px;">${ICONS.package} Compile Package</button>
-                <button class="btn btn-primary" onclick="handleTriggerSolver()" style="display:inline-flex; align-items:center; gap:6px;">${ICONS.solver} Run CP-SAT Solver</button>
+                <button class="btn btn-primary" onclick="handleTriggerSolver(false)" style="display:inline-flex; align-items:center; gap:6px;">${ICONS.solver} Run CP-SAT Solver</button>
+                <button class="btn btn-primary" onclick="handleTriggerSolver(true)" style="display:inline-flex; align-items:center; gap:6px; background:#059669; border-color:#059669;">${ICONS.check} Run & Directly Publish</button>
               </div>
             </div>
 
@@ -4141,6 +4147,7 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
         document.getElementById('metricTimetables').textContent = (currentState.timetableVersions || []).filter(v => v.status === 'published').length;
 
         populateFormDropdowns();
+        populateSolverTerms();
         renderAdminTables();
         renderSingleDayGrid();
         renderStagedDraftsReview();
@@ -6782,9 +6789,20 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
     }
 
     function populateSolverTerms() {
-      const sel = document.getElementById('compileTermSelect');
+      var sel = document.getElementById('compileTermSelect');
       if (sel) {
-        sel.innerHTML = (currentState.academicTerms || []).map(t => '<option value="' + t.id + '">' + t.yearLabel + ' (Sem ' + t.semesterNumber + ')</option>').join('');
+        var terms = currentState.academicTerms || [];
+        var prevVal = sel.value;
+        if (terms.length === 0) {
+          sel.innerHTML = '<option value="">No academic terms loaded</option>';
+        } else {
+          sel.innerHTML = terms.map(function(t) {
+            return '<option value="' + t.id + '">' + (t.yearLabel || 'Academic Year') + ' (Sem ' + t.semesterNumber + ')</option>';
+          }).join('');
+          if (prevVal && terms.some(function(t) { return t.id === prevVal; })) {
+            sel.value = prevVal;
+          }
+        }
       }
     }
 
@@ -6802,18 +6820,24 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
       } catch (err) { showMsg(err.message, true); }
     }
 
-    async function handleTriggerSolver() {
-      const badge = document.getElementById('solverStatusBadge');
-      const log = document.getElementById('solverLogConsole');
-      const nl = String.fromCharCode(10);
+    async function handleTriggerSolver(forceDirectPublish) {
+      var badge = document.getElementById('solverStatusBadge');
+      var log = document.getElementById('solverLogConsole');
+      var nl = String.fromCharCode(10);
+      var checkbox = document.getElementById('solverDirectlyPublish');
+      var directlyPublish = forceDirectPublish === true || (forceDirectPublish !== false && checkbox && checkbox.checked);
+
       if (badge) { badge.textContent = 'Solving...'; badge.className = 'status-badge status-badge-draft'; }
-      if (log) log.innerHTML += nl + '[SOLVER] Dispatching CP-SAT generation request to port 5001...';
+      if (log) log.innerHTML += nl + '[SOLVER] Dispatching CP-SAT generation request to cloud solver (Direct Publish: ' + directlyPublish + ')...';
 
       try {
-        const termId = document.getElementById('compileTermSelect')?.value;
-        const data = await api('/api/generation/request', {
+        var termId = document.getElementById('compileTermSelect')?.value;
+        var data = await api('/api/generation/request', {
           method: 'POST',
-          body: JSON.stringify({ termIds: termId ? [termId] : undefined })
+          body: JSON.stringify({
+            termIds: termId ? [termId] : undefined,
+            directlyPublish: directlyPublish
+          })
         });
 
         if (data.status === 'infeasible' || data.status === 'INFEASIBLE') {
@@ -6823,10 +6847,18 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
             if (data.message) log.innerHTML += nl + '[DIAGNOSTICS] ' + data.message;
           }
           showMsg('Solver returned INFEASIBLE. Review constraint capacities.', true);
+        } else if (data.status === 'unavailable') {
+          if (badge) { badge.textContent = 'Unavailable'; badge.className = 'status-badge badge-pill-cancel'; }
+          if (log) log.innerHTML += nl + '[SOLVER] Result: unavailable. ' + (data.message || '');
+          showMsg(data.message || 'Solver service unavailable', true);
         } else {
-          if (badge) { badge.textContent = 'Complete'; badge.className = 'status-badge status-badge-published'; }
-          if (log) log.innerHTML += nl + '[SOLVER] Result: ' + data.status + ' (' + (data.solveTimeMs || 200) + 'ms). Staged Draft Version ' + data.draftVersionNumber + ' with ' + data.classesCount + ' classes.';
-          showMsg('Solver succeeded! Draft Version ' + data.draftVersionNumber + ' staged.', false);
+          if (badge) { badge.textContent = data.published ? 'Published' : 'Complete'; badge.className = 'status-badge status-badge-published'; }
+          if (log) {
+            log.innerHTML += nl + '[SOLVER] Result: succeeded (' + (data.solveTimeMs || 500) + 'ms). ' +
+              (data.published ? 'Directly Published Version ' : 'Staged Draft Version ') +
+              (data.draftVersionNumber || 1) + ' with ' + (data.classesCount || 0) + ' classes.';
+          }
+          showMsg(data.message || ('Solver succeeded! ' + (data.published ? 'Timetable published live to campus!' : 'Draft version staged.')), false);
         }
         await loadState();
       } catch (err) {

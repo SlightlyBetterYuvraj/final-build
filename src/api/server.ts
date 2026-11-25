@@ -65,9 +65,9 @@ export function createApp(initialRepo?: TimetableRepository) {
   const regularService = new RegularClassService(repo);
   const extraService = new ExtraClassService(repo);
   const transferService = new StudentTransferService(repo);
-  const genAdapter = new GeneratorAdapterService(repo);
   const importService = new DraftImportService(repo);
   const pubService = new PublicationService(repo);
+  const genAdapter = new GeneratorAdapterService(repo, importService, pubService);
 
   // Apply authentication & session verification middleware
   app.use(createAuthMiddleware(authService));
@@ -1227,7 +1227,8 @@ export function createApp(initialRepo?: TimetableRepository) {
   app.post('/api/generation/request', requireRole(['admin']), async (req: Request, res: Response) => {
     try {
       const session = getSession(req);
-      const result = await genAdapter.requestGeneration(session, req.body.termIds, req.body.scope);
+      const directlyPublish = Boolean(req.body.directlyPublish);
+      const result = await genAdapter.requestGeneration(session, req.body.termIds, req.body.scope, { directlyPublish });
       res.json(result);
     } catch (err: any) {
       res.status(400).json({ success: false, error: err.message });

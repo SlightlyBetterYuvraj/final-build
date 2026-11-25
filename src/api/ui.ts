@@ -6760,11 +6760,19 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
           content: [
             'id,course_id,term_id,teacher_id,target_type,target_id',
             'off_cs101_1a,c_cs101,term_2026_odd,teach_01,section,sec_cs_1a',
+            'off_cs101_lab_1a1,c_cs101,term_2026_odd,teach_01,batch,batch_cs_1a_1',
+            'off_cs101_lab_1a2,c_cs101,term_2026_odd,teach_01,batch,batch_cs_1a_2',
             'off_cs101_1b,c_cs101,term_2026_odd,teach_01,section,sec_cs_1b',
+            'off_cs101_lab_1b1,c_cs101,term_2026_odd,teach_01,batch,batch_cs_1b_1',
+            'off_cs101_lab_1b2,c_cs101,term_2026_odd,teach_01,batch,batch_cs_1b_2',
             'off_ma101_1a,c_ma101,term_2026_odd,teach_02,section,sec_cs_1a',
             'off_ma101_1b,c_ma101,term_2026_odd,teach_02,section,sec_cs_1b',
             'off_cs102_1a,c_cs102,term_2026_odd,teach_03,section,sec_cs_1a',
-            'off_cs102_1b,c_cs102,term_2026_odd,teach_04,section,sec_cs_1b'
+            'off_cs102_lab_1a1,c_cs102,term_2026_odd,teach_03,batch,batch_cs_1a_1',
+            'off_cs102_lab_1a2,c_cs102,term_2026_odd,teach_03,batch,batch_cs_1a_2',
+            'off_cs102_1b,c_cs102,term_2026_odd,teach_04,section,sec_cs_1b',
+            'off_cs102_lab_1b1,c_cs102,term_2026_odd,teach_04,batch,batch_cs_1b_1',
+            'off_cs102_lab_1b2,c_cs102,term_2026_odd,teach_04,batch,batch_cs_1b_2'
           ].join(nl)
         },
         {

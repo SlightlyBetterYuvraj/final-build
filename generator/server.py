@@ -75,7 +75,7 @@ class GeneratorRequestHandler(BaseHTTPRequestHandler):
         sys.stderr.write(f"[GeneratorService] {self.address_string()} - {format % args}\n")
 
 
-def run_server(port: int = 5001, host: str = "127.0.0.1"):
+def run_server(port: int = 5001, host: str = "0.0.0.0"):
     server_address = (host, port)
     httpd = HTTPServer(server_address, GeneratorRequestHandler)
     print(f"[GeneratorService] Listening on http://{host}:{port}/generate (Health: http://{host}:{port}/health)")
@@ -91,7 +91,7 @@ def run_server(port: int = 5001, host: str = "127.0.0.1"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Standalone Timetable Generator HTTP Server")
     parser.add_argument("--port", "-p", type=int, default=int(os.environ.get("PORT", "5001")), help="Port to listen on (default: 5001)")
-    parser.add_argument("--host", "-H", default=os.environ.get("HOST", "127.0.0.1"), help="Host to bind to (default: 127.0.0.1)")
+    parser.add_argument("--host", "-H", default=os.environ.get("HOST", "0.0.0.0"), help="Host to bind to (default: 0.0.0.0)")
     args = parser.parse_args()
 
     run_server(port=args.port, host=args.host)

@@ -6740,10 +6740,10 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
           filename: 'teachers.csv',
           content: [
             'id,emp_id,name,email,active',
-            'fac_01,EMP001,Dr. Ananya Sharma,ananya.sharma@jklu.edu.in,true',
-            'fac_02,EMP002,Prof. Rajesh Verma,rajesh.verma@jklu.edu.in,true',
-            'fac_03,EMP003,Dr. Vikram Singh,vikram.singh@jklu.edu.in,true',
-            'fac_04,EMP004,Prof. Neha Gupta,neha.gupta@jklu.edu.in,true'
+            'teach_01,EMP001,Dr. Ananya Sharma,ananya.sharma@jklu.edu.in,true',
+            'teach_02,EMP002,Prof. Rajesh Verma,rajesh.verma@jklu.edu.in,true',
+            'teach_03,EMP003,Dr. Vikram Singh,vikram.singh@jklu.edu.in,true',
+            'teach_04,EMP004,Prof. Neha Gupta,neha.gupta@jklu.edu.in,true'
           ].join(nl)
         },
         {
@@ -6759,12 +6759,12 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
           filename: 'course_offerings.csv',
           content: [
             'id,course_id,term_id,teacher_id,target_type,target_id',
-            'off_cs101_1a,c_cs101,term_2026_odd,fac_01,section,sec_cs_1a',
-            'off_cs101_1b,c_cs101,term_2026_odd,fac_01,section,sec_cs_1b',
-            'off_ma101_1a,c_ma101,term_2026_odd,fac_02,section,sec_cs_1a',
-            'off_ma101_1b,c_ma101,term_2026_odd,fac_02,section,sec_cs_1b',
-            'off_cs102_1a,c_cs102,term_2026_odd,fac_03,section,sec_cs_1a',
-            'off_cs102_1b,c_cs102,term_2026_odd,fac_04,section,sec_cs_1b'
+            'off_cs101_1a,c_cs101,term_2026_odd,teach_01,section,sec_cs_1a',
+            'off_cs101_1b,c_cs101,term_2026_odd,teach_01,section,sec_cs_1b',
+            'off_ma101_1a,c_ma101,term_2026_odd,teach_02,section,sec_cs_1a',
+            'off_ma101_1b,c_ma101,term_2026_odd,teach_02,section,sec_cs_1b',
+            'off_cs102_1a,c_cs102,term_2026_odd,teach_03,section,sec_cs_1a',
+            'off_cs102_1b,c_cs102,term_2026_odd,teach_04,section,sec_cs_1b'
           ].join(nl)
         },
         {

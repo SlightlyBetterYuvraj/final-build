@@ -613,25 +613,49 @@ export async function bulkPersistCurriculumToDb(data: BulkCurriculumData): Promi
     );
     if (roomBatch) await client.query(roomBatch.sql, roomBatch.params);
 
-    // 5. Teachers
-    const teachBatch = buildBatchInsert(
-      'teachers',
-      ['id', 'emp_id', 'name', 'email', 'active'],
-      data.teachers.map((t) => [t.id, t.empId, t.name, t.email, t.active]),
-      'id',
-      ['name', 'email', 'active']
-    );
-    if (teachBatch) await client.query(teachBatch.sql, teachBatch.params);
+    // 5. Teachers (Safely handles duplicate emp_id by updating existing record)
+    for (const teacher of data.teachers) {
+      const sp = 'sp_teach_' + Math.random().toString(36).substring(2, 7);
+      await client.query(`SAVEPOINT ${sp}`);
+      try {
+        await client.query(
+          `INSERT INTO teachers (id, emp_id, name, email, active)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (id) DO UPDATE SET emp_id = EXCLUDED.emp_id, name = EXCLUDED.name, email = EXCLUDED.email, active = EXCLUDED.active;`,
+          [teacher.id, teacher.empId, teacher.name, teacher.email, teacher.active]
+        );
+      } catch (err: any) {
+        await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+        await client.query(
+          `UPDATE teachers SET name = $1, email = $2, active = $3 WHERE emp_id = $4;`,
+          [teacher.name, teacher.email, teacher.active, teacher.empId]
+        );
+      } finally {
+        await client.query(`RELEASE SAVEPOINT ${sp}`).catch(() => {});
+      }
+    }
 
-    // 6. Courses
-    const courseBatch = buildBatchInsert(
-      'courses',
-      ['id', 'code', 'name', 'term_id', 'lecture_hours', 'tutorial_hours', 'practical_hours', 'required_room_type'],
-      data.courses.map((c) => [c.id, c.code, c.name, c.termId, c.lectureHours, c.tutorialHours, c.practicalHours, c.requiredRoomType]),
-      'id',
-      ['name', 'term_id', 'lecture_hours', 'tutorial_hours', 'practical_hours', 'required_room_type']
-    );
-    if (courseBatch) await client.query(courseBatch.sql, courseBatch.params);
+    // 6. Courses (Safely handles duplicate code by updating existing record)
+    for (const course of data.courses) {
+      const sp = 'sp_course_' + Math.random().toString(36).substring(2, 7);
+      await client.query(`SAVEPOINT ${sp}`);
+      try {
+        await client.query(
+          `INSERT INTO courses (id, code, name, term_id, lecture_hours, tutorial_hours, practical_hours, required_room_type)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (id) DO UPDATE SET code = EXCLUDED.code, name = EXCLUDED.name, term_id = EXCLUDED.term_id, lecture_hours = EXCLUDED.lecture_hours, tutorial_hours = EXCLUDED.tutorial_hours, practical_hours = EXCLUDED.practical_hours, required_room_type = EXCLUDED.required_room_type;`,
+          [course.id, course.code, course.name, course.termId, course.lectureHours, course.tutorialHours, course.practicalHours, course.requiredRoomType]
+        );
+      } catch (err: any) {
+        await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+        await client.query(
+          `UPDATE courses SET name = $1, term_id = $2, lecture_hours = $3, tutorial_hours = $4, practical_hours = $5, required_room_type = $6 WHERE code = $7;`,
+          [course.name, course.termId, course.lectureHours, course.tutorialHours, course.practicalHours, course.requiredRoomType, course.code]
+        );
+      } finally {
+        await client.query(`RELEASE SAVEPOINT ${sp}`).catch(() => {});
+      }
+    }
 
     // 7. Course Offerings
     const offBatch = buildBatchInsert(
@@ -643,15 +667,27 @@ export async function bulkPersistCurriculumToDb(data: BulkCurriculumData): Promi
     );
     if (offBatch) await client.query(offBatch.sql, offBatch.params);
 
-    // 8. Students
-    const studBatch = buildBatchInsert(
-      'students',
-      ['id', 'roll_number', 'name', 'email', 'active'],
-      data.students.map((s) => [s.id, s.rollNumber, s.name, s.email, s.active]),
-      'id',
-      ['name', 'email', 'active']
-    );
-    if (studBatch) await client.query(studBatch.sql, studBatch.params);
+    // 8. Students (Safely handles duplicate roll_number or email)
+    for (const student of data.students) {
+      const sp = 'sp_student_' + Math.random().toString(36).substring(2, 7);
+      await client.query(`SAVEPOINT ${sp}`);
+      try {
+        await client.query(
+          `INSERT INTO students (id, roll_number, name, email, active)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (id) DO UPDATE SET roll_number = EXCLUDED.roll_number, name = EXCLUDED.name, email = EXCLUDED.email, active = EXCLUDED.active;`,
+          [student.id, student.rollNumber, student.name, student.email, student.active]
+        );
+      } catch (err: any) {
+        await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+        await client.query(
+          `UPDATE students SET name = $1, email = $2, active = $3 WHERE roll_number = $4 OR email = $2;`,
+          [student.name, student.email, student.active, student.rollNumber]
+        );
+      } finally {
+        await client.query(`RELEASE SAVEPOINT ${sp}`).catch(() => {});
+      }
+    }
 
     await client.query('COMMIT');
   } catch (err: any) {

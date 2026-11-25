@@ -4574,6 +4574,14 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
       const rooms = currentState.rooms || [];
       const occs = (currentState.classOccurrences || []).filter(o => o.date === activeDay.date && o.status === 'scheduled');
 
+      if (rooms.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:36px; background:#FFFFFF; border:1px dashed var(--border); border-radius:12px;">' +
+          '<div style="font-size:14px; font-weight:700; color:var(--text); margin-bottom:4px;">No Venues or Rooms Configured</div>' +
+          '<div style="font-size:12px; color:var(--text-muted);">Add rooms and lecture halls under Modular Management to view utilization metrics.</div>' +
+        '</div>';
+        return;
+      }
+
       let html = '<div style="margin-bottom:12px; font-size:13px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">' +
         '<div>Viewing room occupancy on <strong>' + activeDay.name + '</strong> (' + activeDay.date + ')</div>' +
         '<div style="display:flex; gap:12px; font-size:11px;">' +
@@ -5082,68 +5090,77 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
       // Terms
       const termsBody = document.getElementById('termsTableBody');
       if (termsBody) {
-        termsBody.innerHTML = (currentState.academicTerms || []).map(t =>
+        const terms = currentState.academicTerms || [];
+        termsBody.innerHTML = terms.length > 0 ? terms.map(t =>
           '<tr><td>' + escapeHtml(t.id) + '</td><td>' + escapeHtml(t.yearLabel) + '</td><td>' + escapeHtml(t.semesterNumber) + '</td><td>' + escapeHtml(t.cycle) + '</td><td><span class="status-badge status-badge-published">' + escapeHtml(t.status) + '</span></td></tr>'
-        ).join('');
+        ).join('') : '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">No academic terms found. Use the form below to create a term.</td></tr>';
       }
 
       // Sections
       const secBody = document.getElementById('sectionsTableBody');
       if (secBody) {
-        secBody.innerHTML = (currentState.sections || []).map(s =>
+        const secs = currentState.sections || [];
+        secBody.innerHTML = secs.length > 0 ? secs.map(s =>
           '<tr><td>' + escapeHtml(s.id) + '</td><td>' + escapeHtml(s.termId) + '</td><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.expectedCount) + '</td></tr>'
-        ).join('');
+        ).join('') : '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">No sections configured.</td></tr>';
       }
 
       // Batches
       const batchBody = document.getElementById('batchesTableBody');
       if (batchBody) {
-        batchBody.innerHTML = (currentState.batches || []).map(b =>
+        const batches = currentState.batches || [];
+        batchBody.innerHTML = batches.length > 0 ? batches.map(b =>
           '<tr><td>' + escapeHtml(b.id) + '</td><td>' + escapeHtml(b.sectionId) + '</td><td>' + escapeHtml(b.name) + '</td><td>' + escapeHtml(b.expectedCount) + '</td></tr>'
-        ).join('');
+        ).join('') : '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">No practical batches configured.</td></tr>';
       }
 
       // Courses
       const coursesBody = document.getElementById('coursesTableBody');
       if (coursesBody) {
-        coursesBody.innerHTML = (currentState.courses || []).map(c =>
+        const courses = currentState.courses || [];
+        coursesBody.innerHTML = courses.length > 0 ? courses.map(c =>
           '<tr><td>' + escapeHtml(c.code) + '</td><td>' + escapeHtml(c.name) + '</td><td>' + escapeHtml(c.lectureHours) + 'L / ' + escapeHtml(c.tutorialHours) + 'T / ' + escapeHtml(c.practicalHours) + 'P</td><td>' + escapeHtml(c.requiredRoomType) + '</td></tr>'
-        ).join('');
+        ).join('') : '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">No courses configured.</td></tr>';
       }
 
       // Offerings
       const offBody = document.getElementById('offeringsTableBody');
       if (offBody) {
+        const offs = currentState.courseOfferings || [];
         const cMap = new Map((currentState.courses || []).map(c => [c.id, c.code]));
         const tMap = new Map((currentState.teachers || []).map(t => [t.id, t.name]));
-        offBody.innerHTML = (currentState.courseOfferings || []).map(o =>
+        offBody.innerHTML = offs.length > 0 ? offs.map(o =>
           '<tr><td>' + escapeHtml(cMap.get(o.courseId) || o.courseId) + '</td><td>' + escapeHtml(tMap.get(o.teacherId) || o.teacherId) + '</td><td>' + escapeHtml(o.targetType) + ' ' + escapeHtml(o.targetId) + '</td><td>' + escapeHtml(o.component || 'All') + '</td></tr>'
-        ).join('');
+        ).join('') : '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">No course offerings assigned.</td></tr>';
       }
 
       // Rooms
       const roomsBody = document.getElementById('roomsTableBody');
       if (roomsBody) {
-        roomsBody.innerHTML = (currentState.rooms || []).map(r =>
+        const rooms = currentState.rooms || [];
+        roomsBody.innerHTML = rooms.length > 0 ? rooms.map(r =>
           '<tr><td>Room ' + escapeHtml(r.roomNumber) + '</td><td>' + escapeHtml(r.building) + '</td><td>' + escapeHtml(r.floor) + '</td><td>' + escapeHtml(r.capacity) + '</td><td>' + escapeHtml(r.roomType) + '</td></tr>'
-        ).join('');
+        ).join('') : '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">No venues or rooms added yet.</td></tr>';
       }
 
       // Teachers
       const teachersBody = document.getElementById('teachersTableBody');
       if (teachersBody) {
-        teachersBody.innerHTML = (currentState.teachers || []).map(t =>
+        const teachers = currentState.teachers || [];
+        teachersBody.innerHTML = teachers.length > 0 ? teachers.map(t =>
           '<tr><td>' + escapeHtml(t.name) + '</td><td>' + escapeHtml(t.empId) + '</td><td>' + escapeHtml(t.email) + '</td></tr>'
-        ).join('');
+        ).join('') : '<tr><td colspan="3" style="text-align:center; padding:20px; color:var(--text-muted);">No faculty instructors registered yet.</td></tr>';
       }
 
       // Versions
       const versionsBody = document.getElementById('versionsTableBody');
       if (versionsBody) {
-        versionsBody.innerHTML = (currentState.timetableVersions || []).map(v =>
+        const versions = currentState.timetableVersions || [];
+        versionsBody.innerHTML = versions.length > 0 ? versions.map(v =>
           '<tr><td>Version ' + escapeHtml(v.versionNumber) + '</td><td>' + escapeHtml(v.termId) + '</td><td><span class="status-badge ' + (v.status === 'published' ? 'status-badge-published' : 'status-badge-superseded') + '">' + escapeHtml(v.status) + '</span></td><td>' + (v.publishedAt ? new Date(v.publishedAt).toLocaleString() : '—') + '</td><td>' + (v.status === 'superseded' ? '<button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="restoreVersion(\\'' + escapeHtml(v.id) + '\\')">Restore</button>' : '—') + '</td></tr>'
-        ).join('');
+        ).join('') : '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">No published or draft timetables found.</td></tr>';
       }
+    }
     }
 
     async function restoreVersion(versionId) {
@@ -5948,6 +5965,15 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
         if (activeVer) {
           activeOccs = activeOccs.filter(o => !o.timetableVersionId || o.timetableVersionId === activeVer.id);
         }
+      }
+
+      if (activeOccs.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:48px 24px; background:#FFFFFF; border:1px dashed var(--border); border-radius:12px; margin:16px 0;">' +
+          '<div style="font-size:15px; font-weight:700; color:var(--text); margin-bottom:6px;">No Timetable Scheduled Yet</div>' +
+          '<div style="font-size:13px; color:var(--text-muted); max-width:460px; margin:0 auto 16px;">The database is completely clean and empty. Create terms, courses, and venues under Modular Management, then run generation or import drafts to publish timetables.</div>' +
+          '<button class="btn btn-primary" onclick="switchAdminPage(\\'hub\\')" style="font-size:12px; padding:6px 14px;">Go to Hub</button>' +
+        '</div>';
+        return;
       }
 
       // Check if user selected FULL WEEK VIEW

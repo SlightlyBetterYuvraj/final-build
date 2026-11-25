@@ -1513,6 +1513,12 @@ function seedInitialData(repo: TimetableRepository) {
     ensureCourseColorsInRepository(repo);
     return;
   }
+  // Production / Live app / Database-connected environments: Never auto-seed mock data.
+  // The system and database must remain completely clean and empty.
+  if (isDbConfigured() || process.env.APP_ENV === 'production' || process.env.NODE_ENV === 'production' || !process.env.VITEST) {
+    ensureCourseColorsInRepository(repo);
+    return;
+  }
   repo.seedSync((tx) => {
     populateRealisticUniversityData(tx);
   });

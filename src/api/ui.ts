@@ -6807,16 +6807,25 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
     }
 
     async function handleCompilePackage() {
-      const termId = document.getElementById('compileTermSelect')?.value;
+      var termSelect = document.getElementById('compileTermSelect');
+      var termId = termSelect ? termSelect.value : '';
+      if (!termId && termSelect && termSelect.options.length > 0 && termSelect.options[0].value) {
+        termSelect.selectedIndex = 0;
+        termId = termSelect.value;
+      }
+      if (!termId) {
+        showMsg('Please load curriculum CSVs or select an academic term first.', true);
+        return;
+      }
       try {
-        const data = await api('/api/generation/compile-package', {
+        var data = await api('/api/generation/compile-package', {
           method: 'POST',
-          body: JSON.stringify({ termIds: termId ? [termId] : undefined })
+          body: JSON.stringify({ termIds: [termId] })
         });
         showMsg('Package compiled successfully: Revision ' + data.package.inputRevision, false);
-        const log = document.getElementById('solverLogConsole');
-        const nl = String.fromCharCode(10);
-        if (log) log.innerHTML += nl + '[PACKAGE] Compiled input revision ' + data.package.inputRevision + ' with ' + (data.package.courseOfferings || []).length + ' offerings.';
+        var log = document.getElementById('solverLogConsole');
+        var nl = String.fromCharCode(10);
+        if (log) log.innerHTML += nl + '[PACKAGE] Compiled input revision ' + data.package.inputRevision + ' with ' + (data.package.courseOfferings || []).length + ' offerings for term ' + termId + '.';
       } catch (err) { showMsg(err.message, true); }
     }
 
@@ -6827,15 +6836,26 @@ export function renderHtmlUI(config?: { supabaseUrl?: string; supabaseAnonKey?: 
       var checkbox = document.getElementById('solverDirectlyPublish');
       var directlyPublish = forceDirectPublish === true || (forceDirectPublish !== false && checkbox && checkbox.checked);
 
+      var termSelect = document.getElementById('compileTermSelect');
+      var termId = termSelect ? termSelect.value : '';
+      if (!termId && termSelect && termSelect.options.length > 0 && termSelect.options[0].value) {
+        termSelect.selectedIndex = 0;
+        termId = termSelect.value;
+      }
+      if (!termId) {
+        showMsg('Please load curriculum CSVs or select an academic term first.', true);
+        if (badge) { badge.textContent = 'Awaiting Term'; badge.className = 'status-badge'; }
+        return;
+      }
+
       if (badge) { badge.textContent = 'Solving...'; badge.className = 'status-badge status-badge-draft'; }
       if (log) log.innerHTML += nl + '[SOLVER] Dispatching CP-SAT generation request to cloud solver (Direct Publish: ' + directlyPublish + ')...';
 
       try {
-        var termId = document.getElementById('compileTermSelect')?.value;
         var data = await api('/api/generation/request', {
           method: 'POST',
           body: JSON.stringify({
-            termIds: termId ? [termId] : undefined,
+            termIds: [termId],
             directlyPublish: directlyPublish
           })
         });

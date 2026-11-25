@@ -1228,7 +1228,8 @@ export function createApp(initialRepo?: TimetableRepository) {
     try {
       const session = getSession(req);
       const directlyPublish = Boolean(req.body.directlyPublish);
-      const result = await genAdapter.requestGeneration(session, req.body.termIds, req.body.scope, { directlyPublish });
+      const termIds = req.body.termIds || (req.body.termId ? [req.body.termId] : undefined);
+      const result = await genAdapter.requestGeneration(session, termIds, req.body.scope, { directlyPublish });
       res.json(result);
     } catch (err: any) {
       res.status(400).json({ success: false, error: err.message });
